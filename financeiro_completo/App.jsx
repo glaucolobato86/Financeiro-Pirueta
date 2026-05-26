@@ -120,31 +120,92 @@ function BtnRow({ onCancel, onSave, loading }) {
   );
 }
 
-const NAV = [
-  { id: "dashboard", label: "Dashboard", icon: "🏠" },
-  { id: "lancamentos", label: "Lançamentos", icon: "📋" },
-  { id: "contas_pagar", label: "Contas a Pagar", icon: "🧾" },
-  { id: "contas", label: "Contas Bancárias", icon: "💳" },
-  { id: "investimentos", label: "Investimentos", icon: "📈" },
-  { id: "orcamento", label: "Orçamento", icon: "🎯" },
-  { id: "relatorios", label: "Relatórios / DRE", icon: "📊" },
-  { id: "categorias", label: "Categorias", icon: "🏷️" },
+const MENU = [
+  {
+    id: "dashboard", label: "Dashboard", icon: "🏠", single: true
+  },
+  {
+    id: "financeiro", label: "Financeiro", icon: "💰", single: false,
+    items: [
+      { id: "lancamentos",  label: "Lançamentos",    icon: "📋" },
+      { id: "contas_pagar", label: "Contas a Pagar", icon: "📅" },
+    ]
+  },
+  {
+    id: "contas", label: "Contas Bancárias", icon: "💳", single: true
+  },
+  {
+    id: "investimentos", label: "Investimentos", icon: "📈", single: true
+  },
+  {
+    id: "orcamento", label: "Orçamento", icon: "🎯", single: true
+  },
+  {
+    id: "relatorios", label: "Relatórios / DRE", icon: "📊", single: true
+  },
+  {
+    id: "categorias", label: "Categorias", icon: "🏷️", single: true
+  },
 ];
 
 function Sidebar({ tela, setTela, user, onLogout }) {
+  const telaToGrupo = (t) => {
+    for (const m of MENU) {
+      if (m.single) continue;
+      if (m.items?.some(i => i.id === t)) return m.id;
+    }
+    return null;
+  };
+  const [abertos, setAbertos] = useState(() => {
+    const g = telaToGrupo(tela);
+    const init = {};
+    MENU.forEach(m => { if (!m.single) init[m.id] = m.id === g; });
+    return init;
+  });
+
+  const toggleGrupo = (id) => setAbertos(prev => ({ ...prev, [id]: !prev[id] }));
+
   return (
-    <div style={{ width: 220, background: "#13131a", borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
+    <div style={{ width: 230, background: "#13131a", borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
       <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <img src="/logo.png" alt="PRT" style={{ height: 44, display: "block", marginBottom: 8 }} />
         <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", wordBreak: "break-all" }}>{user?.email}</div>
       </div>
-      <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
-        {NAV.map((n) => (
-          <button key={n.id} onClick={() => setTela(n.id)}
-            style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 8, border: "none", background: tela === n.id ? "rgba(99,102,241,0.18)" : "transparent", color: tela === n.id ? "#818cf8" : "rgba(255,255,255,0.45)", fontSize: 13, fontWeight: tela === n.id ? 500 : 400, cursor: "pointer", marginBottom: 2, textAlign: "left" }}>
-            <span style={{ fontSize: 15 }}>{n.icon}</span>{n.label}
-          </button>
-        ))}
+      <nav style={{ flex: 1, padding: "10px 10px", overflowY: "auto" }}>
+        {MENU.map((m) => {
+          if (m.single) {
+            return (
+              <button key={m.id} onClick={() => setTela(m.id)}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 8, border: "none", background: tela === m.id ? "rgba(99,102,241,0.18)" : "transparent", color: tela === m.id ? "#818cf8" : "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: tela === m.id ? 500 : 400, cursor: "pointer", marginBottom: 2, textAlign: "left" }}>
+                <span style={{ fontSize: 15 }}>{m.icon}</span>{m.label}
+              </button>
+            );
+          }
+          const estaAberto = abertos[m.id];
+          const temAtivo = m.items?.some(i => i.id === tela);
+          return (
+            <div key={m.id} style={{ marginBottom: 2 }}>
+              {/* Cabeçalho do grupo */}
+              <button onClick={() => toggleGrupo(m.id)}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "8px 11px", borderRadius: 8, border: "none", background: temAtivo ? "rgba(99,102,241,0.08)" : "transparent", color: temAtivo ? "#818cf8" : "rgba(255,255,255,0.4)", fontSize: 12, fontWeight: 500, cursor: "pointer", textAlign: "left", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                <span style={{ fontSize: 13 }}>{m.icon}</span>
+                <span style={{ flex: 1 }}>{m.label}</span>
+                <span style={{ fontSize: 10, opacity: 0.6 }}>{estaAberto ? "▲" : "▼"}</span>
+              </button>
+              {/* Itens do grupo */}
+              {estaAberto && (
+                <div style={{ marginLeft: 10, borderLeft: "1px solid rgba(255,255,255,0.07)", paddingLeft: 8, marginBottom: 4 }}>
+                  {m.items.map(item => (
+                    <button key={item.id} onClick={() => setTela(item.id)}
+                      style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 7, border: "none", background: tela === item.id ? "rgba(99,102,241,0.18)" : "transparent", color: tela === item.id ? "#818cf8" : "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: tela === item.id ? 500 : 400, cursor: "pointer", marginBottom: 1, textAlign: "left" }}>
+                      <span style={{ fontSize: 14 }}>{item.icon}</span>{item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
       <div style={{ padding: "12px 10px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <button onClick={onLogout} style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, padding: "9px 11px", borderRadius: 8, border: "none", background: "transparent", color: "rgba(255,255,255,0.35)", fontSize: 13, cursor: "pointer" }}>🚪 Sair</button>
