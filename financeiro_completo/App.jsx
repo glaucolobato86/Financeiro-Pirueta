@@ -782,73 +782,277 @@ function Categorias({ categorias, userId, onRefresh }) {
   );
 }
 
-// ── Relatórios / DRE ───────────────────────────────────────────────────────────
-function Relatorios({ lancamentos, categorias }) {
-  const now = new Date();
-  const [mes, setMes] = useState(now.getMonth() + 1);
-  const [ano, setAno] = useState(now.getFullYear());
-
-  const filtrados = lancamentos.filter((l) => {
-    const d = new Date(l.data + "T12:00:00");
-    return d.getMonth() + 1 === mes && d.getFullYear() === ano;
+// ── Relatórios ────────────────────────────────────────────────────────────────
+function GraficoPizza({ dados, total }) {
+  if (!dados.length) return null;
+  let angulo = 0;
+  const raio = 80, cx = 100, cy = 100;
+  const fatias = dados.map((d) => {
+    const pct = d.total / total;
+    const rad = pct * 2 * Math.PI;
+    const x1 = cx + raio * Math.sin(angulo);
+    const y1 = cy - raio * Math.cos(angulo);
+    angulo += rad;
+    const x2 = cx + raio * Math.sin(angulo);
+    const y2 = cy - raio * Math.cos(angulo);
+    const large = rad > Math.PI ? 1 : 0;
+    return { ...d, path: `M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${raio},${raio} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z`, pct };
   });
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+      <svg width={200} height={200} viewBox="0 0 200 200">
+        {fatias.map((f, i) => <path key={i} d={f.path} fill={f.cor || "#6366f1"} stroke="#1a1a2e" strokeWidth={1.5} />)}
+        <circle cx={cx} cy={cy} r={38} fill="#1a1a2e" />
+      </svg>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {fatias.map((f, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: f.cor || "#6366f1", flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>{f.nome}</span>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginLeft: "auto" }}>{(f.pct * 100).toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-  const rec = filtrados.filter((l) => l.tipo === "receita").reduce((s, l) => s + Number(l.valor), 0);
-  const desp = filtrados.filter((l) => l.tipo === "despesa").reduce((s, l) => s + Number(l.valor), 0);
+function FiltrosPeriodo({ inicio, fim, setInicio, setFim }) {
+  const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDia = new Date().toISOString().slice(0,7) + "-01";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>De</span>
+        <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 12, outline: "none" }} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Até</span>
+        <input type="date" value={fim} onChange={(e) => setFim(e.target.value)} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 12, outline: "none" }} />
+      </div>
+      <button onClick={() => { setInicio(primeiroDia); setFim(hoje); }} style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 6, padding: "6px 12px", color: "#818cf8", fontSize: 12, cursor: "pointer" }}>Mês atual</button>
+      <button onClick={() => { const a = new Date(); a.setDate(1); a.setMonth(a.getMonth()-1); const b = new Date(a.getFullYear(), a.getMonth()+1, 0); setInicio(a.toISOString().split("T")[0]); setFim(b.toISOString().split("T")[0]); }} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 12px", color: "rgba(255,255,255,0.5)", fontSize: 12, cursor: "pointer" }}>Mês anterior</button>
+      <button onClick={() => { const a = new Date(); setInicio(new Date(a.getFullYear(),0,1).toISOString().split("T")[0]); setFim(hoje); }} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 12px", color: "rgba(255,255,255,0.5)", fontSize: 12, cursor: "pointer" }}>Ano atual</button>
+    </div>
+  );
+}
+
+function Relatorios({ lancamentos, categorias, contas }) {
+  const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDia = new Date().toISOString().slice(0,7) + "-01";
+  const [aba, setAba] = useState("balancete");
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
+  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtroCat, setFiltroCat] = useState("");
+
+  const filtrados = useMemo(() => lancamentos.filter((l) => {
+    if (inicio && l.data < inicio) return false;
+    if (fim && l.data > fim) return false;
+    if (filtroTipo !== "todos" && l.tipo !== filtroTipo) return false;
+    if (filtroCat && l.categoria_id !== filtroCat) return false;
+    return true;
+  }), [lancamentos, inicio, fim, filtroTipo, filtroCat]);
+
+  const rec = filtrados.filter(l => l.tipo === "receita").reduce((s,l) => s + Number(l.valor), 0);
+  const desp = filtrados.filter(l => l.tipo === "despesa").reduce((s,l) => s + Number(l.valor), 0);
   const res = rec - desp;
-  const margem = rec ? ((res / rec) * 100).toFixed(1) : "0.0";
 
-  const porCat = categorias.filter((c) => c.tipo === "despesa").map((cat) => ({
+  const porCat = categorias.map((cat) => ({
     ...cat,
-    total: filtrados.filter((l) => l.categoria_id === cat.id && l.tipo === "despesa").reduce((s, l) => s + Number(l.valor), 0),
-  })).filter((c) => c.total > 0);
+    total: filtrados.filter(l => l.categoria_id === cat.id && l.tipo === "despesa").reduce((s,l) => s + Number(l.valor), 0),
+  })).filter(c => c.total > 0).sort((a,b) => b.total - a.total);
+
+  const porCatRec = categorias.map((cat) => ({
+    ...cat,
+    total: filtrados.filter(l => l.categoria_id === cat.id && l.tipo === "receita").reduce((s,l) => s + Number(l.valor), 0),
+  })).filter(c => c.total > 0).sort((a,b) => b.total - a.total);
+
+  // Fluxo por dia
+  const porDia = useMemo(() => {
+    const dias = {};
+    filtrados.forEach(l => {
+      if (!dias[l.data]) dias[l.data] = { rec: 0, desp: 0 };
+      if (l.tipo === "receita") dias[l.data].rec += Number(l.valor);
+      else dias[l.data].desp += Number(l.valor);
+    });
+    return Object.entries(dias).sort((a,b) => a[0].localeCompare(b[0]));
+  }, [filtrados]);
+
+  const abas = [
+    { id: "balancete", label: "Balancete" },
+    { id: "caixa", label: "Caixa" },
+    { id: "dre", label: "DRE" },
+    { id: "categorias_rel", label: "Por Categoria" },
+  ];
+
+  const selectFiltro = { ...inputStyle, width: "auto", minWidth: 140 };
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 600, color: "#fff", marginBottom: 4 }}>Relatórios & DRE</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>Demonstrativo de resultado</div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input type="number" min="1" max="12" value={mes} onChange={(e) => setMes(Number(e.target.value))} style={{ ...inputStyle, width: 70 }} />
-          <input type="number" value={ano} onChange={(e) => setAno(Number(e.target.value))} style={{ ...inputStyle, width: 90 }} />
-        </div>
+      <div style={{ fontSize: 22, fontWeight: 600, color: "#fff", marginBottom: 4 }}>Relatórios</div>
+      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 18 }}>Análise financeira por período</div>
+
+      {/* Abas de relatório */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, borderBottom: "1px solid rgba(255,255,255,0.07)", paddingBottom: 12 }}>
+        {abas.map(a => (
+          <button key={a.id} onClick={() => setAba(a.id)} style={{ padding: "7px 16px", borderRadius: 7, border: `1px solid ${aba === a.id ? "#6366f1" : "rgba(255,255,255,0.1)"}`, background: aba === a.id ? "rgba(99,102,241,0.18)" : "transparent", color: aba === a.id ? "#818cf8" : "rgba(255,255,255,0.45)", fontSize: 13, cursor: "pointer", fontWeight: aba === a.id ? 500 : 400 }}>{a.label}</button>
+        ))}
       </div>
-      <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: 24, marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 16 }}>DRE — {mes}/{ano}</div>
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>( + ) Receita bruta</span>
-          <span style={{ fontSize: 13, color: "#34d399", fontWeight: 500 }}>{fmt(rec)}</span>
-        </div>
-        {porCat.map((cat) => (
-          <div key={cat.id} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0 9px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>( − ) {cat.nome}</span>
-            <span style={{ fontSize: 12, color: "#f87171" }}>({fmt(cat.total)})</span>
+
+      {/* Filtros globais */}
+      <FiltrosPeriodo inicio={inicio} fim={fim} setInicio={setInicio} setFim={setFim} />
+      <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+        <select style={selectFiltro} value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}>
+          <option value="todos">Tipo: Todos</option>
+          <option value="receita">Receitas</option>
+          <option value="despesa">Despesas</option>
+        </select>
+        <select style={selectFiltro} value={filtroCat} onChange={e => setFiltroCat(e.target.value)}>
+          <option value="">Categoria: Todas</option>
+          {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+        </select>
+      </div>
+
+      {/* Cards de totais */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
+        {[["Receitas", rec, "#34d399"], ["Despesas", desp, "#f87171"], ["Resultado", res, res >= 0 ? "#34d399" : "#f87171"]].map(([l,v,c]) => (
+          <div key={l} style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "16px 18px" }}>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>{l}</div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: c }}>{fmt(v)}</div>
           </div>
         ))}
-        {porCat.length === 0 && <div style={{ padding: "9px 0 9px 14px", fontSize: 12, color: "rgba(255,255,255,0.25)" }}>Nenhuma despesa neste período.</div>}
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: "1px solid rgba(255,255,255,0.1)", marginTop: 6 }}>
-          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>( = ) Despesas totais</span>
-          <span style={{ fontSize: 13, color: "#f87171", fontWeight: 500 }}>({fmt(desp)})</span>
-        </div>
-        <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0 4px", borderTop: "2px solid rgba(255,255,255,0.15)", marginTop: 4 }}>
-          <span style={{ fontSize: 15, color: "#fff", fontWeight: 500 }}>( = ) Resultado líquido</span>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 22, fontWeight: 600, color: res >= 0 ? "#34d399" : "#f87171" }}>{fmt(res)}</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Margem: {margem}%</div>
+      </div>
+
+      {/* ── BALANCETE ── */}
+      {aba === "balancete" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.5)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Despesas por categoria</div>
+            {porCat.length === 0 && <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 13 }}>Sem dados no período.</div>}
+            {porCat.map(cat => (
+              <div key={cat.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: cat.cor || "#6366f1" }} />
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.75)" }}>{cat.nome}</span>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "#f87171" }}>{fmt(cat.total)}</div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{desp ? ((cat.total/desp)*100).toFixed(1) : 0}%</div>
+                </div>
+              </div>
+            ))}
+            {desp > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 0", marginTop: 4, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "#fff" }}>Total</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#f87171" }}>{fmt(desp)}</span>
+            </div>}
+          </div>
+          <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.5)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Gráfico de despesas</div>
+            <GraficoPizza dados={porCat} total={desp} />
           </div>
         </div>
-      </div>
-      {porCat.length > 0 && (
+      )}
+
+      {/* ── CAIXA ── */}
+      {aba === "caixa" && (
+        <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}>
+                {["Data", "Dia", "Entradas", "Saídas", "Saldo do dia", "Saldo acum."].map(h => (
+                  <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 10, color: "rgba(255,255,255,0.35)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {porDia.length === 0 && <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "rgba(255,255,255,0.25)", fontSize: 13 }}>Sem movimentações no período.</td></tr>}
+              {(() => {
+                let acum = 0;
+                const dias = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+                return porDia.map(([data, v]) => {
+                  const saldoDia = v.rec - v.desp;
+                  acum += saldoDia;
+                  const [y,m,d] = data.split("-");
+                  const diaSem = dias[new Date(Number(y),Number(m)-1,Number(d)).getDay()];
+                  return (
+                    <tr key={data} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                      <td style={{ padding: "10px 14px", fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{d}/{m}/{y}</td>
+                      <td style={{ padding: "10px 14px", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{diaSem}</td>
+                      <td style={{ padding: "10px 14px", fontSize: 12, color: "#34d399", fontWeight: 500 }}>{v.rec > 0 ? fmt(v.rec) : "—"}</td>
+                      <td style={{ padding: "10px 14px", fontSize: 12, color: "#f87171", fontWeight: 500 }}>{v.desp > 0 ? fmt(v.desp) : "—"}</td>
+                      <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: saldoDia >= 0 ? "#34d399" : "#f87171" }}>{fmt(saldoDia)}</td>
+                      <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: acum >= 0 ? "#818cf8" : "#f87171" }}>{fmt(acum)}</td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── DRE ── */}
+      {aba === "dre" && (
         <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 16 }}>Despesas por categoria</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-            {porCat.map((cat) => (
-              <div key={cat.id} style={{ background: "rgba(255,255,255,0.03)", borderLeft: `3px solid ${cat.cor || "#6366f1"}`, borderRadius: "0 8px 8px 0", padding: "12px 14px" }}>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>{cat.nome}</div>
-                <div style={{ fontSize: 16, fontWeight: 500, color: "#fff" }}>{fmt(cat.total)}</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>{desp ? ((cat.total / desp) * 100).toFixed(1) : 0}% do total</div>
+          <div style={{ fontSize: 11, fontWeight: 500, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 16 }}>
+            DRE — {inicio} a {fim}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>( + ) Receita bruta</span>
+            <span style={{ fontSize: 13, color: "#34d399", fontWeight: 500 }}>{fmt(rec)}</span>
+          </div>
+          {porCat.map(cat => (
+            <div key={cat.id} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0 9px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>( − ) {cat.nome}</span>
+              <span style={{ fontSize: 12, color: "#f87171" }}>({fmt(cat.total)})</span>
+            </div>
+          ))}
+          {porCat.length === 0 && <div style={{ padding: "9px 0 9px 14px", fontSize: 12, color: "rgba(255,255,255,0.25)" }}>Nenhuma despesa neste período.</div>}
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: "1px solid rgba(255,255,255,0.1)", marginTop: 6 }}>
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>( = ) Despesas totais</span>
+            <span style={{ fontSize: 13, color: "#f87171", fontWeight: 500 }}>({fmt(desp)})</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "14px 0 4px", borderTop: "2px solid rgba(255,255,255,0.15)", marginTop: 4 }}>
+            <span style={{ fontSize: 15, color: "#fff", fontWeight: 500 }}>( = ) Resultado líquido</span>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 22, fontWeight: 600, color: res >= 0 ? "#34d399" : "#f87171" }}>{fmt(res)}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>Margem: {rec ? ((res/rec)*100).toFixed(1) : "0.0"}%</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── POR CATEGORIA ── */}
+      {aba === "categorias_rel" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.5)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Receitas por categoria</div>
+            {porCatRec.length === 0 && <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 13 }}>Sem dados.</div>}
+            {porCatRec.map(cat => (
+              <div key={cat.id} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>{cat.nome}</span>
+                  <span style={{ fontSize: 12, color: "#34d399" }}>{fmt(cat.total)}</span>
+                </div>
+                <div style={{ height: 4, background: "rgba(255,255,255,0.07)", borderRadius: 999 }}>
+                  <div style={{ width: `${rec ? (cat.total/rec*100) : 0}%`, height: "100%", background: cat.cor || "#34d399", borderRadius: 999 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.5)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>Despesas por categoria</div>
+            {porCat.length === 0 && <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 13 }}>Sem dados.</div>}
+            {porCat.map(cat => (
+              <div key={cat.id} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>{cat.nome}</span>
+                  <span style={{ fontSize: 12, color: "#f87171" }}>{fmt(cat.total)}</span>
+                </div>
+                <div style={{ height: 4, background: "rgba(255,255,255,0.07)", borderRadius: 999 }}>
+                  <div style={{ width: `${desp ? (cat.total/desp*100) : 0}%`, height: "100%", background: cat.cor || "#f87171", borderRadius: 999 }} />
+                </div>
               </div>
             ))}
           </div>
@@ -857,6 +1061,8 @@ function Relatorios({ lancamentos, categorias }) {
     </div>
   );
 }
+
+
 
 // ── App principal ──────────────────────────────────────────────────────────────
 export default function App() {
@@ -905,7 +1111,7 @@ export default function App() {
               {tela === "contas"        && <Contas {...props} />}
               {tela === "investimentos" && <Investimentos {...props} />}
               {tela === "orcamento"     && <Orcamento {...props} />}
-              {tela === "relatorios"    && <Relatorios {...props} />}
+              {tela === "relatorios"    && <Relatorios {...props} contas={dados.contas} />}
               {tela === "categorias"    && <Categorias {...props} />}
             </>
           )}
