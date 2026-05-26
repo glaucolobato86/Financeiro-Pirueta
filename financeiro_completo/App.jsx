@@ -66,7 +66,7 @@ function LoginScreen({ onLogin }) {
     <div style={{ minHeight: "100vh", background: "#0a0a0f", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
       <div style={{ width: 400, background: "#13131a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "48px 40px" }}>
-        <div style={{ fontSize: 26, fontWeight: 600, color: "#fff", marginBottom: 6 }}>Finança Pro</div>
+        <img src="/logo.png" alt="PRT" style={{ height: 52, marginBottom: 20, display: "block" }} />
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginBottom: 32 }}>{modo === "login" ? "Entre na sua conta" : "Crie sua conta gratuita"}</div>
         {erro && <div style={{ background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#f87171", marginBottom: 16 }}>{erro}</div>}
         {[["E-mail", "email"], ["Senha", "password"]].map(([label, type], i) => (
@@ -133,9 +133,9 @@ const NAV = [
 function Sidebar({ tela, setTela, user, onLogout }) {
   return (
     <div style={{ width: 220, background: "#13131a", borderRight: "1px solid rgba(255,255,255,0.06)", display: "flex", flexDirection: "column", flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
-      <div style={{ padding: "22px 20px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 20, fontWeight: 600, color: "#fff" }}>Finança Pro</div>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 3, wordBreak: "break-all" }}>{user?.email}</div>
+      <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <img src="/logo.png" alt="PRT" style={{ height: 44, display: "block", marginBottom: 8 }} />
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", wordBreak: "break-all" }}>{user?.email}</div>
       </div>
       <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
         {NAV.map((n) => (
@@ -234,10 +234,11 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
     try {
       let anexo_url = null, anexo_nome = null;
       if (arquivo) {
-        const path = `${userId}/${Date.now()}_${arquivo.name}`;
+        const nomeSeguro = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const path = `${userId}/${Date.now()}_${nomeSeguro}`;
         const up = await fetch(`${SUPABASE_URL}/storage/v1/object/anexos/${path}`, {
           method: "POST",
-          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${localStorage.getItem("sb_token")}`, "Content-Type": arquivo.type },
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${localStorage.getItem("sb_token")}`, "Content-Type": arquivo.type, "x-upsert": "true" },
           body: arquivo,
         });
         if (up.ok) { anexo_url = path; anexo_nome = arquivo.name; }
