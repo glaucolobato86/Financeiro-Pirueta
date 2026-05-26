@@ -123,7 +123,8 @@ function BtnRow({ onCancel, onSave, loading }) {
 const NAV = [
   { id: "dashboard", label: "Dashboard", icon: "🏠" },
   { id: "lancamentos", label: "Lançamentos", icon: "📋" },
-  { id: "contas", label: "Contas", icon: "💳" },
+  { id: "contas_pagar", label: "Contas a Pagar", icon: "🧾" },
+  { id: "contas", label: "Contas Bancárias", icon: "💳" },
   { id: "investimentos", label: "Investimentos", icon: "📈" },
   { id: "orcamento", label: "Orçamento", icon: "🎯" },
   { id: "relatorios", label: "Relatórios / DRE", icon: "📊" },
@@ -1064,6 +1065,565 @@ function Relatorios({ lancamentos, categorias, contas }) {
 
 
 
+
+// ── Contas a Pagar ─────────────────────────────────────────────────────────────
+function ContasPagar({ categorias, contas, userId, onRefresh }) {
+  const [contasPagar, setContasPagar] = useState([]);
+  const [modal, setModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [nf, setNf] = useState(null);
+  const [comp, setComp] = useState(null);
+  const [diasAbertos, setDiasAbertos] = useState({});
+  const hoje = new Date().toISOString().split("T")[0];
+  const [form, setForm] = useState({ descricao: "", valor: "", vencimento: "", categoria_id: "", conta_id: "", tipo_custo: "variavel", recorrente: false, observacao: "" });
+
+  useEffect(() => {
+    sb(`contas_pagar?user_id=eq.${userId}&order=vencimento.asc`).then(setContasPagar).catch(console.error);
+  }, [userId]);
+
+  const recarregar = () => sb(`contas_pagar?user_id=eq.${userId}&order=vencimento.asc`).then(setContasPagar);
+
+  const getStatus = (cp) => {
+    if (cp.status === "pago") return { label: "Pago", cor: "#34d399", bg: "rgba(52,211,153,0.15)", icon: "✓" };
+    if (cp.status === "cancelado") return { label: "Cancelado", cor: "#6b7280", bg: "rgba(107,114,128,0.15)", icon: "✗" };
+    if (cp.vencimento < hoje) return { label: "Vencido", cor: "#f87171", bg: "rgba(248,113,113,0.15)", icon: "⚠" };
+    const diff = Math.ceil((new Date(cp.vencimento) - new Date(hoje)) / 86400000);
+    if (diff <= 5) return { label: "Vence em breve", cor: "#fbbf24", bg: "rgba(251,191,36,0.15)", icon: "!" };
+    return { label: "Em aberto", cor: "#818cf8", bg: "rgba(129,140,248,0.15)", icon: "○" };
+  };
+
+  const marcarPago = async (cp) => {
+    if (!confirm(`Marcar "${cp.descricao}" como pago?`)) return;
+    await sb(`contas_pagar?id=eq.${cp.id}`, { method: "PATCH", body: JSON.stringify({ status: "pago", pago_em: hoje }) });
+    // Gera lançamento automático
+    await sb("lancamentos", { method: "POST", body: JSON.stringify({ descricao: cp.descricao, valor: Number(cp.valor), tipo: "despesa", data: hoje, categoria_id: cp.categoria_id || null, conta_id: cp.conta_id || null, user_id: userId, nf_url: cp.nf_url, nf_nome: cp.nf_nome, comprovante_url: cp.comprovante_url, comprovante_nome: cp.comprovante_nome }) });
+    recarregar(); onRefresh();
+  };
+
+  const excluir = async (id) => {
+    if (!confirm("Excluir esta conta?")) return;
+    await sb(`contas_pagar?id=eq.${id}`, { method: "DELETE", prefer: "" });
+    recarregar();
+  };
+
+  const uploadArquivo = async (arquivo) => {
+    const nomeSeguro = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${userId}/${Date.now()}_${nomeSeguro}`;
+    const token = localStorage.getItem("sb_token");
+    const up = await fetch(`${SUPABASE_URL}/storage/v1/object/anexos/${path}`, {
+      method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": arquivo.type, "x-upsert": "true" }, body: arquivo,
+    });
+    if (up.ok) return { url: path, nome: arquivo.name };
+    return { url: null, nome: null };
+  };
+
+  const verAnexo = async (url, nome) => {
+    const token = localStorage.getItem("sb_token");
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/anexos/${url}`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
+    const blob = await res.blob();
+    setPreview({ url: URL.createObjectURL(blob), nome, tipo: blob.type });
+  };
+
+  const salvar = async () => {
+    if (!form.descricao || !form.valor || !form.vencimento) return alert("Preencha descrição, valor e vencimento.");
+    setLoading(true);
+    try {
+      let nf_url = null, nf_nome = null, comprovante_url = null, comprovante_nome = null;
+      if (nf) { const r = await uploadArquivo(nf); nf_url = r.url; nf_nome = r.nome; }
+      if (comp) { const r = await uploadArquivo(comp); comprovante_url = r.url; comprovante_nome = r.nome; }
+      await sb("contas_pagar", { method: "POST", body: JSON.stringify({ ...form, valor: Number(form.valor), user_id: userId, categoria_id: form.categoria_id || null, conta_id: form.conta_id || null, nf_url, nf_nome, comprovante_url, comprovante_nome }) });
+      setModal(false); setNf(null); setComp(null);
+      setForm({ descricao: "", valor: "", vencimento: "", categoria_id: "", conta_id: "", tipo_custo: "variavel", recorrente: false, observacao: "" });
+      recarregar();
+    } catch (e) { alert("Erro: " + e.message); }
+    setLoading(false);
+  };
+
+  // Agrupa por data de vencimento
+  const porVenc = useMemo(() => {
+    const dias = {};
+    contasPagar.forEach(cp => {
+      if (!dias[cp.vencimento]) dias[cp.vencimento] = [];
+      dias[cp.vencimento].push(cp);
+    });
+    return Object.entries(dias).sort((a,b) => a[0].localeCompare(b[0]));
+  }, [contasPagar]);
+
+  // Totais
+  const totalFixo = contasPagar.filter(cp => cp.tipo_custo === "fixo" && cp.status !== "cancelado").reduce((s,cp) => s + Number(cp.valor), 0);
+  const totalVar = contasPagar.filter(cp => cp.tipo_custo === "variavel" && cp.status !== "cancelado").reduce((s,cp) => s + Number(cp.valor), 0);
+  const totalInvest = contasPagar.filter(cp => cp.tipo_custo === "investimento" && cp.status !== "cancelado").reduce((s,cp) => s + Number(cp.valor), 0);
+  const totalGeral = totalFixo + totalVar + totalInvest;
+
+  const fmtData = (data) => {
+    if (!data) return { dia: "—", mes: "—", semana: "—" };
+    const [y, m, d] = data.split("-");
+    const dias = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+    const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const dt = new Date(Number(y), Number(m)-1, Number(d));
+    return { dia: d, mes: meses[Number(m)-1], semana: dias[dt.getDay()] };
+  };
+
+  const BtnAnexo = ({ url, nome, label }) => url ? (
+    <button onClick={() => verAnexo(url, nome)} style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", cursor: "pointer", fontSize: 10, padding: "2px 8px", borderRadius: 4 }}>{label}</button>
+  ) : null;
+
+  const tipoCustoLabel = { fixo: "Custo Fixo", variavel: "Custo Variável", investimento: "Investimento", outros: "Outros" };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 600, color: "#fff", marginBottom: 4 }}>Contas a Pagar</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{contasPagar.length} contas cadastradas</div>
+        </div>
+        <button onClick={() => setModal(true)} style={{ background: "#6366f1", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>+ Nova conta</button>
+      </div>
+
+      {/* Totais */}
+      <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "14px 20px", marginBottom: 18, display: "flex", gap: 32, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.06em" }}>TOTAIS</div>
+        {[["Custo Fixo", totalFixo, "#a78bfa"], ["Custo Variável", totalVar, "#fbbf24"], ["Investimento", totalInvest, "#34d399"], ["Total Geral", totalGeral, "#f87171"]].map(([l,v,c]) => (
+          <div key={l} style={{ display: "flex", flex: 1, flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{l}</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: c }}>{fmt(v)}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Lista agrupada por vencimento */}
+      {porVenc.length === 0 && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", padding: 20 }}>Nenhuma conta cadastrada.</div>}
+      {porVenc.map(([data, itens]) => {
+        const { dia, mes, semana } = fmtData(data);
+        const aberto = diasAbertos[data] !== false; // aberto por padrão
+        const totalDia = itens.reduce((s, cp) => s + Number(cp.valor), 0);
+        const vencidos = itens.filter(cp => cp.vencimento < hoje && cp.status === "aberto").length;
+        return (
+          <div key={data} style={{ marginBottom: 8 }}>
+            <div onClick={() => setDiasAbertos(prev => ({ ...prev, [data]: !aberto }))}
+              style={{ display: "flex", alignItems: "center", gap: 14, background: "#1a1a2e", border: `1px solid ${vencidos > 0 ? "rgba(248,113,113,0.3)" : "rgba(255,255,255,0.07)"}`, borderRadius: aberto ? "10px 10px 0 0" : 10, padding: "12px 16px", cursor: "pointer", userSelect: "none" }}>
+              <div style={{ textAlign: "center", minWidth: 44, background: vencidos > 0 ? "rgba(248,113,113,0.15)" : "rgba(99,102,241,0.15)", borderRadius: 8, padding: "6px 8px" }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: vencidos > 0 ? "#f87171" : "#818cf8", lineHeight: 1 }}>{dia}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>{mes}</div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, color: "#fff", fontWeight: 500 }}>{semana}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{itens.length} conta{itens.length !== 1 ? "s" : ""} {vencidos > 0 ? `· ${vencidos} vencida${vencidos !== 1 ? "s" : ""}` : ""}</div>
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#f87171" }}>{fmt(totalDia)}</div>
+              <div style={{ fontSize: 16, color: "rgba(255,255,255,0.3)" }}>{aberto ? "▲" : "▼"}</div>
+            </div>
+
+            {aberto && (
+              <div style={{ background: "#13131f", border: "1px solid rgba(255,255,255,0.07)", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      {["Status","","Tipo","Categoria","Descrição","NF","Comprovante","Valor",""].map((h,i) => (
+                        <th key={i} style={{ padding: "8px 10px", textAlign: "left", fontSize: 9, color: "rgba(255,255,255,0.25)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itens.map((cp) => {
+                      const st = getStatus(cp);
+                      const cat = categorias.find(c => c.id === cp.categoria_id);
+                      return (
+                        <tr key={cp.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)", opacity: cp.status === "cancelado" ? 0.4 : 1 }}>
+                          <td style={{ padding: "10px 10px" }}>
+                            <span style={{ background: st.bg, color: st.cor, padding: "3px 8px", borderRadius: 5, fontSize: 10, fontWeight: 500, whiteSpace: "nowrap" }}>
+                              {st.icon} {st.label}
+                            </span>
+                          </td>
+                          <td style={{ padding: "10px 6px" }}>
+                            {cp.status === "aberto" && (
+                              <button onClick={() => marcarPago(cp)} title="Marcar como pago"
+                                style={{ width: 30, height: 30, borderRadius: "50%", background: "#16a34a", border: "none", color: "#fff", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                                $
+                              </button>
+                            )}
+                            {cp.status === "pago" && <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(52,211,153,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>✓</div>}
+                          </td>
+                          <td style={{ padding: "10px 10px" }}>
+                            <span style={{ background: "rgba(167,139,250,0.12)", color: "#a78bfa", padding: "2px 7px", borderRadius: 4, fontSize: 10 }}>{tipoCustoLabel[cp.tipo_custo] || cp.tipo_custo}</span>
+                          </td>
+                          <td style={{ padding: "10px 10px", fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{cat?.nome || "—"}</td>
+                          <td style={{ padding: "10px 10px", fontSize: 12, color: "#fff", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {cp.descricao}
+                            {cp.recorrente && <span style={{ marginLeft: 6, fontSize: 9, color: "#fbbf24", background: "rgba(251,191,36,0.1)", padding: "1px 5px", borderRadius: 3 }}>RECORRENTE</span>}
+                          </td>
+                          <td style={{ padding: "10px 6px" }}><BtnAnexo url={cp.nf_url} nome={cp.nf_nome} label="📄 NF" /></td>
+                          <td style={{ padding: "10px 6px" }}><BtnAnexo url={cp.comprovante_url} nome={cp.comprovante_nome} label="🧾 Comp." /></td>
+                          <td style={{ padding: "10px 10px", fontSize: 13, fontWeight: 600, color: cp.status === "pago" ? "#34d399" : "#f87171", whiteSpace: "nowrap" }}>{fmt(cp.valor)}</td>
+                          <td style={{ padding: "10px 6px" }}>
+                            <button onClick={() => excluir(cp.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14 }}>🗑</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Modal preview */}
+      {preview && (
+        <div onClick={() => setPreview(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 24, width: "80vw", maxWidth: 800, maxHeight: "90vh", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 14, color: "#fff", fontWeight: 500 }}>{preview.nome}</span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <a href={preview.url} download={preview.nome} style={{ background: "#6366f1", borderRadius: 7, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}>⬇ Baixar</a>
+                <button onClick={() => setPreview(null)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 7, padding: "7px 12px", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕ Fechar</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: "auto", borderRadius: 8 }}>
+              {preview.tipo === "application/pdf"
+                ? <iframe src={preview.url} style={{ width: "100%", height: "65vh", border: "none", borderRadius: 8 }} />
+                : <img src={preview.url} alt={preview.nome} style={{ maxWidth: "100%", maxHeight: "65vh", display: "block", margin: "0 auto", borderRadius: 8 }} />}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal nova conta */}
+      {modal && (
+        <Modal titulo="Nova conta a pagar" onClose={() => setModal(false)}>
+          <Campo label="Descrição"><input style={inputStyle} value={form.descricao} onChange={e => setForm({...form, descricao: e.target.value})} placeholder="Ex: Aluguel, Fornecedor..." /></Campo>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Campo label="Valor (R$)"><input style={inputStyle} type="number" step="0.01" value={form.valor} onChange={e => setForm({...form, valor: e.target.value})} placeholder="0,00" /></Campo>
+            <Campo label="Vencimento"><input style={inputStyle} type="date" value={form.vencimento} onChange={e => setForm({...form, vencimento: e.target.value})} /></Campo>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Campo label="Tipo de custo">
+              <select style={selectStyle} value={form.tipo_custo} onChange={e => setForm({...form, tipo_custo: e.target.value})}>
+                <option value="fixo">Custo Fixo</option>
+                <option value="variavel">Custo Variável</option>
+                <option value="investimento">Investimento</option>
+                <option value="outros">Outros</option>
+              </select>
+            </Campo>
+            <Campo label="Categoria">
+              <select style={selectStyle} value={form.categoria_id} onChange={e => setForm({...form, categoria_id: e.target.value})}>
+                <option value="">Sem categoria</option>
+                {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+          <Campo label="Conta bancária">
+            <select style={selectStyle} value={form.conta_id} onChange={e => setForm({...form, conta_id: e.target.value})}>
+              <option value="">Sem conta</option>
+              {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </Campo>
+          <Campo label="Observação"><textarea style={{ ...inputStyle, resize: "vertical", minHeight: 50 }} value={form.observacao} onChange={e => setForm({...form, observacao: e.target.value})} placeholder="Opcional" /></Campo>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <input type="checkbox" id="recorrente" checked={form.recorrente} onChange={e => setForm({...form, recorrente: e.target.checked})} style={{ width: 16, height: 16, cursor: "pointer" }} />
+            <label htmlFor="recorrente" style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", cursor: "pointer" }}>Conta recorrente (mensal)</label>
+          </div>
+          <Campo label="📄 Nota Fiscal">
+            <input type="file" accept="image/*,.pdf" onChange={e => setNf(e.target.files[0])} style={{ ...inputStyle, padding: "8px 12px" }} />
+            {nf && <div style={{ fontSize: 11, color: "#34d399", marginTop: 4 }}>✓ {nf.name}</div>}
+          </Campo>
+          <Campo label="🧾 Comprovante de Pagamento">
+            <input type="file" accept="image/*,.pdf" onChange={e => setComp(e.target.files[0])} style={{ ...inputStyle, padding: "8px 12px" }} />
+            {comp && <div style={{ fontSize: 11, color: "#34d399", marginTop: 4 }}>✓ {comp.name}</div>}
+          </Campo>
+          <BtnRow onCancel={() => setModal(false)} onSave={salvar} loading={loading} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── Contas a Pagar ────────────────────────────────────────────────────────────
+function ContasPagar({ categorias, userId, onRefresh }) {
+  const [contas, setContas] = useState([]);
+  const [modal, setModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  const [nf, setNf] = useState(null);
+  const [comp, setComp] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const hoje = new Date().toISOString().split("T")[0];
+  const [form, setForm] = useState({ descricao: "", valor: "", vencimento: "", categoria_id: "", tipo_custo: "variavel", recorrente: false, intervalo_meses: 1, observacao: "" });
+
+  const carregar = async () => {
+    setCarregando(true);
+    try {
+      const data = await sb(`contas_pagar?user_id=eq.${userId}&order=vencimento.asc`);
+      setContas(data || []);
+    } catch(e) { console.error(e); }
+    setCarregando(false);
+  };
+
+  useEffect(() => { carregar(); }, [userId]);
+
+  const getStatus = (c) => {
+    if (c.status === "pago") return "pago";
+    if (c.vencimento < hoje) return "vencido";
+    const diff = (new Date(c.vencimento) - new Date()) / (1000*60*60*24);
+    if (diff <= 5) return "avencer";
+    return "aberto";
+  };
+
+  const statusInfo = {
+    pago:    { label: "Pago",      cor: "#34d399", bg: "rgba(52,211,153,0.15)",  icon: "✓" },
+    vencido: { label: "Vencido",   cor: "#f87171", bg: "rgba(248,113,113,0.15)", icon: "⚠" },
+    avencer: { label: "A vencer",  cor: "#fbbf24", bg: "rgba(251,191,36,0.15)",  icon: "⏰" },
+    aberto:  { label: "Em aberto", cor: "#818cf8", bg: "rgba(129,140,248,0.15)", icon: "○" },
+  };
+
+  const uploadArquivo = async (arquivo) => {
+    const nomeSeguro = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${userId}/${Date.now()}_${nomeSeguro}`;
+    const token = localStorage.getItem("sb_token");
+    const up = await fetch(`${SUPABASE_URL}/storage/v1/object/anexos/${path}`, {
+      method: "POST", headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": arquivo.type, "x-upsert": "true" }, body: arquivo,
+    });
+    if (up.ok) return { url: path, nome: arquivo.name };
+    return { url: null, nome: null };
+  };
+
+  const verAnexo = async (url, nome) => {
+    const token = localStorage.getItem("sb_token");
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/anexos/${url}`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
+    const blob = await res.blob();
+    setPreview({ url: URL.createObjectURL(blob), nome, tipo: blob.type });
+  };
+
+  const salvar = async () => {
+    if (!form.descricao || !form.valor || !form.vencimento) return alert("Preencha descrição, valor e vencimento.");
+    setLoading(true);
+    try {
+      let nf_url = null, nf_nome = null, comprovante_url = null, comprovante_nome = null;
+      if (nf) { const r = await uploadArquivo(nf); nf_url = r.url; nf_nome = r.nome; }
+      if (comp) { const r = await uploadArquivo(comp); comprovante_url = r.url; comprovante_nome = r.nome; }
+      await sb("contas_pagar", { method: "POST", body: JSON.stringify({ ...form, valor: Number(form.valor), user_id: userId, categoria_id: form.categoria_id || null, nf_url, nf_nome, comprovante_url, comprovante_nome }) });
+      setModal(false); setNf(null); setComp(null);
+      setForm({ descricao: "", valor: "", vencimento: "", categoria_id: "", tipo_custo: "variavel", recorrente: false, intervalo_meses: 1, observacao: "" });
+      carregar();
+    } catch(e) { alert("Erro: " + e.message); }
+    setLoading(false);
+  };
+
+  const marcarPago = async (id) => {
+    if (!confirm("Marcar esta conta como paga?")) return;
+    await sb(`contas_pagar?id=eq.${id}`, { method: "PATCH", body: JSON.stringify({ status: "pago", pago_em: hoje }) });
+    carregar();
+  };
+
+  const excluir = async (id) => {
+    if (!confirm("Excluir esta conta?")) return;
+    await sb(`contas_pagar?id=eq.${id}`, { method: "DELETE", prefer: "" });
+    carregar();
+  };
+
+  const lista = contas.filter(c => filtroStatus === "todos" || getStatus(c) === filtroStatus);
+
+  // Totais por tipo
+  const totais = { fixo: 0, variavel: 0, investimento: 0, outros: 0 };
+  contas.filter(c => getStatus(c) !== "pago").forEach(c => { totais[c.tipo_custo] = (totais[c.tipo_custo] || 0) + Number(c.valor); });
+  const totalGeral = Object.values(totais).reduce((s,v) => s+v, 0);
+
+  // Agrupa por data de vencimento
+  const porDia = {};
+  lista.forEach(c => {
+    if (!porDia[c.vencimento]) porDia[c.vencimento] = [];
+    porDia[c.vencimento].push(c);
+  });
+  const diasOrdenados = Object.entries(porDia).sort((a,b) => a[0].localeCompare(b[0]));
+
+  const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  const fmtData = (data) => { const [y,m,d] = data.split("-"); return { dia: d, mes: meses[Number(m)-1], ano: y }; };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 600, color: "#fff", marginBottom: 4 }}>Contas a Pagar</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{contas.length} contas cadastradas</div>
+        </div>
+        <button onClick={() => setModal(true)} style={{ background: "#6366f1", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>+ Nova conta</button>
+      </div>
+
+      {/* Totais por tipo */}
+      <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "14px 20px", marginBottom: 16, display: "flex", gap: 32, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Totais em aberto</div>
+        {[["Custo Fixo", totais.fixo, "#818cf8"], ["Custo Variável", totais.variavel, "#fbbf24"], ["Investimento", totais.investimento, "#34d399"], ["Outros", totais.outros, "rgba(255,255,255,0.4)"], ["Total Geral", totalGeral, "#f87171"]].map(([l,v,c]) => (
+          <div key={l}>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", marginBottom: 3 }}>{l}</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: c }}>{fmt(v)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros de status */}
+      <div style={{ display: "flex", gap: 7, marginBottom: 16 }}>
+        {[["todos","Todos","rgba(255,255,255,0.4)"], ["vencido","Vencidos","#f87171"], ["avencer","A vencer","#fbbf24"], ["aberto","Em aberto","#818cf8"], ["pago","Pagos","#34d399"]].map(([v,l,c]) => (
+          <button key={v} onClick={() => setFiltroStatus(v)}
+            style={{ padding: "5px 13px", borderRadius: 6, border: `1px solid ${filtroStatus === v ? c : "rgba(255,255,255,0.1)"}`, background: filtroStatus === v ? c+"22" : "transparent", color: filtroStatus === v ? c : "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer" }}>{l}</button>
+        ))}
+      </div>
+
+      {/* Lista agrupada por vencimento */}
+      {carregando && <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13 }}>Carregando...</div>}
+      {!carregando && diasOrdenados.length === 0 && <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, padding: 20 }}>Nenhuma conta encontrada.</div>}
+
+      {diasOrdenados.map(([data, itens]) => {
+        const totalDia = itens.reduce((s,c) => s + Number(c.valor), 0);
+        const { dia, mes, ano } = fmtData(data);
+        const temVencido = itens.some(c => getStatus(c) === "vencido");
+        const temAvencer = itens.some(c => getStatus(c) === "avencer");
+        const corDia = temVencido ? "#f87171" : temAvencer ? "#fbbf24" : "#818cf8";
+        return (
+          <div key={data} style={{ marginBottom: 12 }}>
+            {/* Header do dia */}
+            <div style={{ display: "flex", alignItems: "center", gap: 14, background: "#1a1a2e", border: `1px solid ${corDia}44`, borderRadius: "10px 10px 0 0", padding: "10px 16px" }}>
+              <div style={{ textAlign: "center", minWidth: 44, background: corDia + "22", borderRadius: 8, padding: "5px 8px" }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: corDia, lineHeight: 1 }}>{dia}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>{mes}</div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, color: "#fff", fontWeight: 500 }}>{dia}/{mes}/{ano}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{itens.length} conta{itens.length !== 1 ? "s" : ""}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>Total do dia</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: corDia }}>{fmt(totalDia)}</div>
+              </div>
+            </div>
+
+            {/* Itens do dia */}
+            {itens.map((c, i) => {
+              const cat = categorias.find(x => x.id === c.categoria_id);
+              const st = getStatus(c);
+              const si = statusInfo[st];
+              const tipoCor = { fixo: "#818cf8", variavel: "#fbbf24", investimento: "#34d399", outros: "rgba(255,255,255,0.4)" };
+              const tipoLabel = { fixo: "Custo Fixo", variavel: "Custo Variável", investimento: "Investimento", outros: "Outros" };
+              return (
+                <div key={c.id} style={{ background: "#13131f", border: "1px solid rgba(255,255,255,0.05)", borderTop: "none", borderRadius: i === itens.length - 1 ? "0 0 10px 10px" : 0, padding: "12px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                  {/* Status badge */}
+                  <div style={{ background: si.bg, border: `1px solid ${si.cor}44`, borderRadius: 6, padding: "3px 8px", fontSize: 11, color: si.cor, fontWeight: 500, whiteSpace: "nowrap", minWidth: 80, textAlign: "center" }}>
+                    {si.icon} {si.label}
+                  </div>
+
+                  {/* Botão pagar */}
+                  {st !== "pago" && (
+                    <button onClick={() => marcarPago(c.id)} title="Marcar como pago"
+                      style={{ width: 34, height: 34, borderRadius: "50%", background: "#16a34a", border: "none", color: "#fff", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      💲
+                    </button>
+                  )}
+                  {st === "pago" && (
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(52,211,153,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>✓</div>
+                  )}
+
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: "#fff", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.descricao}</div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 11, background: (tipoCor[c.tipo_custo] || "#6366f1") + "22", color: tipoCor[c.tipo_custo] || "#6366f1", padding: "1px 7px", borderRadius: 4 }}>{tipoLabel[c.tipo_custo]}</span>
+                      {cat && <span style={{ fontSize: 11, background: (cat.cor || "#6366f1") + "22", color: cat.cor || "#6366f1", padding: "1px 7px", borderRadius: 4 }}>{cat.nome}</span>}
+                      {c.recorrente && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>🔄 Recorrente</span>}
+                    </div>
+                  </div>
+
+                  {/* Anexos */}
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {c.nf_url && <button onClick={() => verAnexo(c.nf_url, c.nf_nome || "NF")} style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", cursor: "pointer", fontSize: 10, padding: "2px 8px", borderRadius: 4 }}>📄 NF</button>}
+                    {c.comprovante_url && <button onClick={() => verAnexo(c.comprovante_url, c.comprovante_nome || "Comp.")} style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", cursor: "pointer", fontSize: 10, padding: "2px 8px", borderRadius: 4 }}>🧾 Comp.</button>}
+                  </div>
+
+                  {/* Valor */}
+                  <div style={{ fontSize: 15, fontWeight: 600, color: st === "pago" ? "#34d399" : "#fff", minWidth: 100, textAlign: "right" }}>{fmt(c.valor)}</div>
+
+                  {/* Excluir */}
+                  <button onClick={() => excluir(c.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14 }}>🗑</button>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+
+      {/* Preview de arquivo */}
+      {preview && (
+        <div onClick={() => setPreview(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 24, width: "80vw", maxWidth: 800, maxHeight: "90vh", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 14, color: "#fff", fontWeight: 500 }}>{preview.nome}</span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <a href={preview.url} download={preview.nome} style={{ background: "#6366f1", borderRadius: 7, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}>⬇ Baixar</a>
+                <button onClick={() => setPreview(null)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 7, padding: "7px 12px", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕ Fechar</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: "auto", borderRadius: 8 }}>
+              {preview.tipo === "application/pdf" ? <iframe src={preview.url} style={{ width: "100%", height: "65vh", border: "none", borderRadius: 8 }} /> : <img src={preview.url} alt={preview.nome} style={{ maxWidth: "100%", maxHeight: "65vh", display: "block", margin: "0 auto", borderRadius: 8 }} />}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal nova conta */}
+      {modal && (
+        <Modal titulo="Nova conta a pagar" onClose={() => setModal(false)}>
+          <Campo label="Descrição"><input style={inputStyle} value={form.descricao} onChange={e => setForm({...form, descricao: e.target.value})} placeholder="Ex: Aluguel, COFINS, TIM..." /></Campo>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Campo label="Valor (R$)"><input style={inputStyle} type="number" step="0.01" value={form.valor} onChange={e => setForm({...form, valor: e.target.value})} placeholder="0,00" /></Campo>
+            <Campo label="Vencimento"><input style={inputStyle} type="date" value={form.vencimento} onChange={e => setForm({...form, vencimento: e.target.value})} /></Campo>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Campo label="Tipo de custo">
+              <select style={selectStyle} value={form.tipo_custo} onChange={e => setForm({...form, tipo_custo: e.target.value})}>
+                <option value="fixo">Custo Fixo</option>
+                <option value="variavel">Custo Variável</option>
+                <option value="investimento">Investimento</option>
+                <option value="outros">Outros</option>
+              </select>
+            </Campo>
+            <Campo label="Categoria">
+              <select style={selectStyle} value={form.categoria_id} onChange={e => setForm({...form, categoria_id: e.target.value})}>
+                <option value="">Sem categoria</option>
+                {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+          <Campo label="Recorrente?">
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={() => setForm({...form, recorrente: !form.recorrente})} style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${form.recorrente ? "#6366f1" : "rgba(255,255,255,0.1)"}`, background: form.recorrente ? "rgba(99,102,241,0.15)" : "transparent", color: form.recorrente ? "#818cf8" : "rgba(255,255,255,0.4)", fontSize: 13, cursor: "pointer" }}>
+                {form.recorrente ? "🔄 Sim" : "Não"}
+              </button>
+              {form.recorrente && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>a cada</span>
+                  <input type="number" min="1" value={form.intervalo_meses} onChange={e => setForm({...form, intervalo_meses: Number(e.target.value)})} style={{ ...inputStyle, width: 60, padding: "7px 10px" }} />
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>mês(es)</span>
+                </div>
+              )}
+            </div>
+          </Campo>
+          <Campo label="Observação"><textarea style={{ ...inputStyle, resize: "vertical", minHeight: 50 }} value={form.observacao} onChange={e => setForm({...form, observacao: e.target.value})} placeholder="Opcional" /></Campo>
+          <Campo label="📄 Nota Fiscal">
+            <input type="file" accept="image/*,.pdf" onChange={e => setNf(e.target.files[0])} style={{ ...inputStyle, padding: "8px 12px" }} />
+            {nf && <div style={{ fontSize: 11, color: "#34d399", marginTop: 4 }}>✓ {nf.name}</div>}
+          </Campo>
+          <Campo label="🧾 Comprovante de Pagamento">
+            <input type="file" accept="image/*,.pdf" onChange={e => setComp(e.target.files[0])} style={{ ...inputStyle, padding: "8px 12px" }} />
+            {comp && <div style={{ fontSize: 11, color: "#34d399", marginTop: 4 }}>✓ {comp.name}</div>}
+          </Campo>
+          <BtnRow onCancel={() => setModal(false)} onSave={salvar} loading={loading} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 // ── App principal ──────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("sb_user")); } catch { return null; } });
@@ -1112,6 +1672,7 @@ export default function App() {
               {tela === "investimentos" && <Investimentos {...props} />}
               {tela === "orcamento"     && <Orcamento {...props} />}
               {tela === "relatorios"    && <Relatorios {...props} contas={dados.contas} />}
+              {tela === "contas_pagar" && <ContasPagar categorias={dados.categorias} contas={dados.contas} userId={user.id} onRefresh={carregar} />}
               {tela === "categorias"    && <Categorias {...props} />}
             </>
           )}
