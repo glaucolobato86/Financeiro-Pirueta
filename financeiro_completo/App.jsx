@@ -227,9 +227,13 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
   const [nf, setNf] = useState(null);
   const [comp, setComp] = useState(null);
   const [diasAbertos, setDiasAbertos] = useState({});
+  const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDiaMes = new Date().toISOString().slice(0,7) + "-01";
+  const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
+  const [dataFim, setDataFim] = useState(hoje);
   const [form, setForm] = useState({ descricao: "", valor: "", tipo: "despesa", data: new Date().toISOString().split("T")[0], categoria_id: "", conta_id: "", observacao: "" });
 
-  const lista = useMemo(() => lancamentos.filter((l) => filtro === "todos" || l.tipo === filtro).sort((a, b) => new Date(b.data) - new Date(a.data)), [lancamentos, filtro]);
+  const lista = useMemo(() => lancamentos.filter((l) => (filtro === "todos" || l.tipo === filtro) && (!dataInicio || l.data >= dataInicio) && (!dataFim || l.data <= dataFim)).sort((a, b) => new Date(b.data) - new Date(a.data)), [lancamentos, filtro, dataInicio, dataFim]);
 
   // Agrupa por data
   const porDia = useMemo(() => {
@@ -291,12 +295,12 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
     onRefresh();
   };
 
-  const BtnAnexo = ({ url, nome }) => url ? (
+  const BtnAnexo = ({ url, nome, label }) => url ? (
     <button onClick={() => verAnexo(url, nome)}
-      style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", cursor: "pointer", fontSize: 10, padding: "2px 7px", borderRadius: 4 }}>
-      Ver
+      style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", cursor: "pointer", fontSize: 10, padding: "2px 8px", borderRadius: 4, whiteSpace: "nowrap" }}>
+      {label}
     </button>
-  ) : <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>—</span>;
+  ) : null;
 
   const fmtData = (data) => {
     const [y, m, d] = data.split("-");
@@ -314,6 +318,28 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{lista.length} registros</div>
         </div>
         <button onClick={() => setModal(true)} style={{ background: "#6366f1", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>+ Novo lançamento</button>
+      </div>
+
+      {/* Filtro de datas */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 14, background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "12px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>De</span>
+          <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)}
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 12, outline: "none" }} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>Até</span>
+          <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)}
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 10px", color: "#fff", fontSize: 12, outline: "none" }} />
+        </div>
+        <button onClick={() => { setDataInicio(primeiroDiaMes); setDataFim(hoje); }}
+          style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 6, padding: "6px 12px", color: "#818cf8", fontSize: 12, cursor: "pointer" }}>
+          Mês atual
+        </button>
+        <button onClick={() => { setDataInicio(""); setDataFim(""); }}
+          style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "6px 12px", color: "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer" }}>
+          Tudo
+        </button>
       </div>
 
       {/* Filtros */}
@@ -386,8 +412,8 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
                       </div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
                         <div style={{ display: "flex", gap: 4 }}>
-                          {l.nf_url && <BtnAnexo url={l.nf_url} nome={l.nf_nome || "NF"} />}
-                          {l.comprovante_url && <BtnAnexo url={l.comprovante_url} nome={l.comprovante_nome || "Comprovante"} />}
+                          {l.nf_url && <BtnAnexo url={l.nf_url} nome={l.nf_nome || "NF"} label="📄 NF" />}
+                          {l.comprovante_url && <BtnAnexo url={l.comprovante_url} nome={l.comprovante_nome || "Comprovante"} label="🧾 Comprovante" />}
                         </div>
                         <div style={{ fontSize: 13, fontWeight: 600, color: l.tipo === "receita" ? "#34d399" : "#f87171", minWidth: 90, textAlign: "right" }}>
                           {l.tipo === "receita" ? "+" : "-"}{fmt(Math.abs(Number(l.valor)))}
