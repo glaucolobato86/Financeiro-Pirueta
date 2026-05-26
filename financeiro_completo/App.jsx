@@ -291,7 +291,16 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
                   <td style={{ padding: "10px 13px", fontSize: 12, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.descricao}</td>
                   <td style={{ padding: "10px 13px" }}>{cat ? <span style={{ background: (cat.cor || "#6366f1") + "22", color: cat.cor || "#6366f1", padding: "2px 8px", borderRadius: 5, fontSize: 11 }}>{cat.nome}</span> : <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>—</span>}</td>
                   <td style={{ padding: "10px 13px", fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{conta?.nome || "—"}</td>
-                  <td style={{ padding: "10px 13px", fontSize: 11 }}>{l.anexo_nome ? <span style={{ color: "#34d399" }}>✓ Anexado</span> : <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>}</td>
+                  <td style={{ padding: "10px 13px", fontSize: 11 }}>{l.anexo_url ? (
+                    <button onClick={async () => {
+                      const token = localStorage.getItem("sb_token");
+                      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/anexos/${l.anexo_url}`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
+                      const blob = await res.blob();
+                      window.open(URL.createObjectURL(blob), "_blank");
+                    }} style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", cursor: "pointer", fontSize: 11, padding: "3px 8px", borderRadius: 5 }}>
+                      ✓ Ver anexo
+                    </button>
+                  ) : <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>}</td>
                   <td style={{ padding: "10px 13px", fontSize: 12, fontWeight: 500, color: l.tipo === "receita" ? "#34d399" : "#f87171" }}>{l.tipo === "receita" ? "+" : ""}{fmt(l.valor)}</td>
                   <td style={{ padding: "10px 13px" }}><button onClick={() => excluir(l.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", cursor: "pointer", fontSize: 14 }}>🗑</button></td>
                 </tr>
