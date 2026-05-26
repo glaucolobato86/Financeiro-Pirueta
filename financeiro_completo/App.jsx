@@ -222,29 +222,46 @@ function Dashboard({ lancamentos, contas, investimentos, categorias }) {
 function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
   const [filtro, setFiltro] = useState("todos");
   const [modal, setModal] = useState(false);
+  const [preview, setPreview] = useState(null); // { url, nome, tipo }
   const [loading, setLoading] = useState(false);
-  const [arquivo, setArquivo] = useState(null);
+  const [nf, setNf] = useState(null);
+  const [comp, setComp] = useState(null);
   const [form, setForm] = useState({ descricao: "", valor: "", tipo: "despesa", data: new Date().toISOString().split("T")[0], categoria_id: "", conta_id: "", observacao: "" });
 
   const lista = useMemo(() => lancamentos.filter((l) => filtro === "todos" || l.tipo === filtro).sort((a, b) => new Date(b.data) - new Date(a.data)), [lancamentos, filtro]);
+
+  const uploadArquivo = async (arquivo) => {
+    const nomeSeguro = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${userId}/${Date.now()}_${nomeSeguro}`;
+    const token = localStorage.getItem("sb_token");
+    const up = await fetch(`${SUPABASE_URL}/storage/v1/object/anexos/${path}`, {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}`, "Content-Type": arquivo.type, "x-upsert": "true" },
+      body: arquivo,
+    });
+    if (up.ok) return { url: path, nome: arquivo.name };
+    return { url: null, nome: null };
+  };
+
+  const verAnexo = async (url, nome) => {
+    const token = localStorage.getItem("sb_token");
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/anexos/${url}`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+    });
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    setPreview({ url: objUrl, nome, tipo: blob.type });
+  };
 
   const salvar = async () => {
     if (!form.descricao || !form.valor || !form.data) return alert("Preencha descrição, valor e data.");
     setLoading(true);
     try {
-      let anexo_url = null, anexo_nome = null;
-      if (arquivo) {
-        const nomeSeguro = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const path = `${userId}/${Date.now()}_${nomeSeguro}`;
-        const up = await fetch(`${SUPABASE_URL}/storage/v1/object/anexos/${path}`, {
-          method: "POST",
-          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${localStorage.getItem("sb_token")}`, "Content-Type": arquivo.type, "x-upsert": "true" },
-          body: arquivo,
-        });
-        if (up.ok) { anexo_url = path; anexo_nome = arquivo.name; }
-      }
-      await sb("lancamentos", { method: "POST", body: JSON.stringify({ ...form, valor: Number(form.valor), user_id: userId, categoria_id: form.categoria_id || null, conta_id: form.conta_id || null, anexo_url, anexo_nome }) });
-      setModal(false); setArquivo(null);
+      let nf_url = null, nf_nome = null, comprovante_url = null, comprovante_nome = null;
+      if (nf) { const r = await uploadArquivo(nf); nf_url = r.url; nf_nome = r.nome; }
+      if (comp) { const r = await uploadArquivo(comp); comprovante_url = r.url; comprovante_nome = r.nome; }
+      await sb("lancamentos", { method: "POST", body: JSON.stringify({ ...form, valor: Number(form.valor), user_id: userId, categoria_id: form.categoria_id || null, conta_id: form.conta_id || null, nf_url, nf_nome, comprovante_url, comprovante_nome }) });
+      setModal(false); setNf(null); setComp(null);
       setForm({ descricao: "", valor: "", tipo: "despesa", data: new Date().toISOString().split("T")[0], categoria_id: "", conta_id: "", observacao: "" });
       onRefresh();
     } catch (e) { alert("Erro ao salvar: " + e.message); }
@@ -256,6 +273,13 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
     await sb(`lancamentos?id=eq.${id}`, { method: "DELETE", prefer: "" });
     onRefresh();
   };
+
+  const BtnAnexo = ({ url, nome }) => url ? (
+    <button onClick={() => verAnexo(url, nome)}
+      style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", cursor: "pointer", fontSize: 10, padding: "3px 7px", borderRadius: 5, whiteSpace: "nowrap" }}>
+      ✓ Ver
+    </button>
+  ) : <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>—</span>;
 
   return (
     <div>
@@ -271,44 +295,61 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
           <button key={f} onClick={() => setFiltro(f)} style={{ padding: "5px 13px", borderRadius: 6, border: `1px solid ${filtro === f ? "#6366f1" : "rgba(255,255,255,0.1)"}`, background: filtro === f ? "rgba(99,102,241,0.15)" : "transparent", color: filtro === f ? "#818cf8" : "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer", textTransform: "capitalize" }}>{f}</button>
         ))}
       </div>
-      <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+      <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750 }}>
           <thead>
             <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              {[["Data",90],["Descrição",180],["Categoria",120],["Conta",100],["Anexo",110],["Valor",100],["",40]].map(([h, w]) => (
-                <th key={h} style={{ width: w, padding: "11px 13px", textAlign: "left", fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.07em" }}>{h}</th>
+              {[["Data",85],["Descrição",160],["Categoria",110],["Conta",90],["NF",70],["Comprovante",90],["Valor",95],["",36]].map(([h, w]) => (
+                <th key={h} style={{ width: w, padding: "11px 10px", textAlign: "left", fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {lista.length === 0 && <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.25)" }}>Nenhum lançamento encontrado.</td></tr>}
+            {lista.length === 0 && <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.25)" }}>Nenhum lançamento encontrado.</td></tr>}
             {lista.map((l) => {
               const cat = categorias.find((c) => c.id === l.categoria_id);
               const conta = contas.find((c) => c.id === l.conta_id);
               return (
                 <tr key={l.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                  <td style={{ padding: "10px 13px", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{l.data}</td>
-                  <td style={{ padding: "10px 13px", fontSize: 12, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.descricao}</td>
-                  <td style={{ padding: "10px 13px" }}>{cat ? <span style={{ background: (cat.cor || "#6366f1") + "22", color: cat.cor || "#6366f1", padding: "2px 8px", borderRadius: 5, fontSize: 11 }}>{cat.nome}</span> : <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>—</span>}</td>
-                  <td style={{ padding: "10px 13px", fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{conta?.nome || "—"}</td>
-                  <td style={{ padding: "10px 13px", fontSize: 11 }}>{l.anexo_url ? (
-                    <button onClick={async () => {
-                      const token = localStorage.getItem("sb_token");
-                      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/anexos/${l.anexo_url}`, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` } });
-                      const blob = await res.blob();
-                      window.open(URL.createObjectURL(blob), "_blank");
-                    }} style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", cursor: "pointer", fontSize: 11, padding: "3px 8px", borderRadius: 5 }}>
-                      ✓ Ver anexo
-                    </button>
-                  ) : <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>}</td>
-                  <td style={{ padding: "10px 13px", fontSize: 12, fontWeight: 500, color: l.tipo === "receita" ? "#34d399" : "#f87171" }}>{l.tipo === "receita" ? "+" : ""}{fmt(l.valor)}</td>
-                  <td style={{ padding: "10px 13px" }}><button onClick={() => excluir(l.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", cursor: "pointer", fontSize: 14 }}>🗑</button></td>
+                  <td style={{ padding: "9px 10px", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{l.data}</td>
+                  <td style={{ padding: "9px 10px", fontSize: 12, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{l.descricao}</td>
+                  <td style={{ padding: "9px 10px" }}>{cat ? <span style={{ background: (cat.cor || "#6366f1") + "22", color: cat.cor || "#6366f1", padding: "2px 7px", borderRadius: 5, fontSize: 11 }}>{cat.nome}</span> : <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>—</span>}</td>
+                  <td style={{ padding: "9px 10px", fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{conta?.nome || "—"}</td>
+                  <td style={{ padding: "9px 10px" }}><BtnAnexo url={l.nf_url} nome={l.nf_nome} /></td>
+                  <td style={{ padding: "9px 10px" }}><BtnAnexo url={l.comprovante_url} nome={l.comprovante_nome} /></td>
+                  <td style={{ padding: "9px 10px", fontSize: 12, fontWeight: 500, color: l.tipo === "receita" ? "#34d399" : "#f87171" }}>{l.tipo === "receita" ? "+" : ""}{fmt(l.valor)}</td>
+                  <td style={{ padding: "9px 10px" }}><button onClick={() => excluir(l.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", cursor: "pointer", fontSize: 14 }}>🗑</button></td>
                 </tr>
               );
             })}
           </tbody>
         </table>
       </div>
+
+      {/* Modal preview de arquivo */}
+      {preview && (
+        <div onClick={() => setPreview(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: "#13131a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 24, width: "80vw", maxWidth: 800, maxHeight: "90vh", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 14, color: "#fff", fontWeight: 500 }}>{preview.nome}</span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <a href={preview.url} download={preview.nome}
+                  style={{ background: "#6366f1", border: "none", borderRadius: 7, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 500, cursor: "pointer", textDecoration: "none" }}>
+                  ⬇ Baixar
+                </a>
+                <button onClick={() => setPreview(null)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 7, padding: "7px 12px", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕ Fechar</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: "auto", borderRadius: 8, background: "rgba(255,255,255,0.03)" }}>
+              {preview.tipo === "application/pdf"
+                ? <iframe src={preview.url} style={{ width: "100%", height: "65vh", border: "none", borderRadius: 8 }} />
+                : <img src={preview.url} alt={preview.nome} style={{ maxWidth: "100%", maxHeight: "65vh", display: "block", margin: "0 auto", borderRadius: 8 }} />
+              }
+            </div>
+          </div>
+        </div>
+      )}
+
       {modal && (
         <Modal titulo="Novo lançamento" onClose={() => setModal(false)}>
           <Campo label="Descrição"><input style={inputStyle} value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} placeholder="Ex: Supermercado" /></Campo>
@@ -338,9 +379,13 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
             </Campo>
           </div>
           <Campo label="Observação"><textarea style={{ ...inputStyle, resize: "vertical", minHeight: 60 }} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} placeholder="Opcional" /></Campo>
-          <Campo label="Anexar NF / Comprovante">
-            <input type="file" accept="image/*,.pdf" onChange={(e) => setArquivo(e.target.files[0])} style={{ ...inputStyle, padding: "8px 12px" }} />
-            {arquivo && <div style={{ fontSize: 11, color: "#34d399", marginTop: 4 }}>✓ {arquivo.name}</div>}
+          <Campo label="📄 Nota Fiscal (imagem ou PDF)">
+            <input type="file" accept="image/*,.pdf" onChange={(e) => setNf(e.target.files[0])} style={{ ...inputStyle, padding: "8px 12px" }} />
+            {nf && <div style={{ fontSize: 11, color: "#34d399", marginTop: 4 }}>✓ {nf.name}</div>}
+          </Campo>
+          <Campo label="🧾 Comprovante de Pagamento (imagem ou PDF)">
+            <input type="file" accept="image/*,.pdf" onChange={(e) => setComp(e.target.files[0])} style={{ ...inputStyle, padding: "8px 12px" }} />
+            {comp && <div style={{ fontSize: 11, color: "#34d399", marginTop: 4 }}>✓ {comp.name}</div>}
           </Campo>
           <BtnRow onCancel={() => setModal(false)} onSave={salvar} loading={loading} />
         </Modal>
