@@ -222,13 +222,31 @@ function Dashboard({ lancamentos, contas, investimentos, categorias }) {
 function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
   const [filtro, setFiltro] = useState("todos");
   const [modal, setModal] = useState(false);
-  const [preview, setPreview] = useState(null); // { url, nome, tipo }
+  const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [nf, setNf] = useState(null);
   const [comp, setComp] = useState(null);
+  const [diasAbertos, setDiasAbertos] = useState({});
   const [form, setForm] = useState({ descricao: "", valor: "", tipo: "despesa", data: new Date().toISOString().split("T")[0], categoria_id: "", conta_id: "", observacao: "" });
 
   const lista = useMemo(() => lancamentos.filter((l) => filtro === "todos" || l.tipo === filtro).sort((a, b) => new Date(b.data) - new Date(a.data)), [lancamentos, filtro]);
+
+  // Agrupa por data
+  const porDia = useMemo(() => {
+    const dias = {};
+    lista.forEach((l) => {
+      if (!dias[l.data]) dias[l.data] = [];
+      dias[l.data].push(l);
+    });
+    return Object.entries(dias).sort((a, b) => new Date(b[0]) - new Date(a[0]));
+  }, [lista]);
+
+  const totalGeral = useMemo(() => ({
+    receita: lista.filter(l => l.tipo === "receita").reduce((s, l) => s + Number(l.valor), 0),
+    despesa: lista.filter(l => l.tipo === "despesa").reduce((s, l) => s + Number(l.valor), 0),
+  }), [lista]);
+
+  const toggleDia = (data) => setDiasAbertos(prev => ({ ...prev, [data]: !prev[data] }));
 
   const uploadArquivo = async (arquivo) => {
     const nomeSeguro = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -249,8 +267,7 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
     });
     const blob = await res.blob();
-    const objUrl = URL.createObjectURL(blob);
-    setPreview({ url: objUrl, nome, tipo: blob.type });
+    setPreview({ url: URL.createObjectURL(blob), nome, tipo: blob.type });
   };
 
   const salvar = async () => {
@@ -276,55 +293,115 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
 
   const BtnAnexo = ({ url, nome }) => url ? (
     <button onClick={() => verAnexo(url, nome)}
-      style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", cursor: "pointer", fontSize: 10, padding: "3px 7px", borderRadius: 5, whiteSpace: "nowrap" }}>
-      ✓ Ver
+      style={{ background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.3)", color: "#34d399", cursor: "pointer", fontSize: 10, padding: "2px 7px", borderRadius: 4 }}>
+      Ver
     </button>
   ) : <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>—</span>;
 
+  const fmtData = (data) => {
+    const [y, m, d] = data.split("-");
+    const dias = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+    const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const dt = new Date(Number(y), Number(m)-1, Number(d));
+    return { dia: d, mes: meses[Number(m)-1], semana: dias[dt.getDay()] };
+  };
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 600, color: "#fff", marginBottom: 4 }}>Lançamentos</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{lista.length} registros</div>
         </div>
         <button onClick={() => setModal(true)} style={{ background: "#6366f1", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>+ Novo lançamento</button>
       </div>
+
+      {/* Filtros */}
       <div style={{ display: "flex", gap: 7, marginBottom: 16 }}>
         {["todos", "receita", "despesa"].map((f) => (
           <button key={f} onClick={() => setFiltro(f)} style={{ padding: "5px 13px", borderRadius: 6, border: `1px solid ${filtro === f ? "#6366f1" : "rgba(255,255,255,0.1)"}`, background: filtro === f ? "rgba(99,102,241,0.15)" : "transparent", color: filtro === f ? "#818cf8" : "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer", textTransform: "capitalize" }}>{f}</button>
         ))}
       </div>
-      <div style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 750 }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              {[["Data",85],["Descrição",160],["Categoria",110],["Conta",90],["NF",70],["Comprovante",90],["Valor",95],["",36]].map(([h, w]) => (
-                <th key={h} style={{ width: w, padding: "11px 10px", textAlign: "left", fontSize: 10, color: "rgba(255,255,255,0.3)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {lista.length === 0 && <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", fontSize: 13, color: "rgba(255,255,255,0.25)" }}>Nenhum lançamento encontrado.</td></tr>}
-            {lista.map((l) => {
-              const cat = categorias.find((c) => c.id === l.categoria_id);
-              const conta = contas.find((c) => c.id === l.conta_id);
-              return (
-                <tr key={l.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                  <td style={{ padding: "9px 10px", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{l.data}</td>
-                  <td style={{ padding: "9px 10px", fontSize: 12, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 160 }}>{l.descricao}</td>
-                  <td style={{ padding: "9px 10px" }}>{cat ? <span style={{ background: (cat.cor || "#6366f1") + "22", color: cat.cor || "#6366f1", padding: "2px 7px", borderRadius: 5, fontSize: 11 }}>{cat.nome}</span> : <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 11 }}>—</span>}</td>
-                  <td style={{ padding: "9px 10px", fontSize: 12, color: "rgba(255,255,255,0.45)" }}>{conta?.nome || "—"}</td>
-                  <td style={{ padding: "9px 10px" }}><BtnAnexo url={l.nf_url} nome={l.nf_nome} /></td>
-                  <td style={{ padding: "9px 10px" }}><BtnAnexo url={l.comprovante_url} nome={l.comprovante_nome} /></td>
-                  <td style={{ padding: "9px 10px", fontSize: 12, fontWeight: 500, color: l.tipo === "receita" ? "#34d399" : "#f87171" }}>{l.tipo === "receita" ? "+" : ""}{fmt(l.valor)}</td>
-                  <td style={{ padding: "9px 10px" }}><button onClick={() => excluir(l.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", cursor: "pointer", fontSize: 14 }}>🗑</button></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+
+      {/* Totais gerais */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 }}>
+        {[["Total de receitas", totalGeral.receita, "#34d399"], ["Total de despesas", totalGeral.despesa, "#f87171"], ["Resultado", totalGeral.receita - totalGeral.despesa, totalGeral.receita - totalGeral.despesa >= 0 ? "#34d399" : "#f87171"]].map(([l,v,c]) => (
+          <div key={l} style={{ background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "12px 16px" }}>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>{l}</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: c }}>{fmt(v)}</div>
+          </div>
+        ))}
       </div>
+
+      {/* Extrato por dia */}
+      {porDia.length === 0 && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", padding: 20 }}>Nenhum lançamento encontrado.</div>}
+      {porDia.map(([data, itens]) => {
+        const rec = itens.filter(l => l.tipo === "receita").reduce((s,l) => s + Number(l.valor), 0);
+        const desp = itens.filter(l => l.tipo === "despesa").reduce((s,l) => s + Number(l.valor), 0);
+        const aberto = diasAbertos[data];
+        const { dia, mes, semana } = fmtData(data);
+        return (
+          <div key={data} style={{ marginBottom: 8 }}>
+            {/* Cabeçalho do dia — clicável */}
+            <div onClick={() => toggleDia(data)} style={{ display: "flex", alignItems: "center", gap: 14, background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.07)", borderRadius: aberto ? "10px 10px 0 0" : 10, padding: "12px 16px", cursor: "pointer", userSelect: "none" }}>
+              {/* Data */}
+              <div style={{ textAlign: "center", minWidth: 44, background: "rgba(99,102,241,0.15)", borderRadius: 8, padding: "6px 8px" }}>
+                <div style={{ fontSize: 18, fontWeight: 600, color: "#818cf8", lineHeight: 1 }}>{dia}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>{mes}</div>
+              </div>
+              {/* Dia da semana */}
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, color: "#fff", fontWeight: 500 }}>{semana}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{itens.length} lançamento{itens.length !== 1 ? "s" : ""}</div>
+              </div>
+              {/* Totais do dia */}
+              <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+                {rec > 0 && <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>Entrada</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#34d399" }}>{fmt(rec)}</div>
+                </div>}
+                {desp > 0 && <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>Saída</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#f87171" }}>{fmt(desp)}</div>
+                </div>}
+                <div style={{ fontSize: 16, color: "rgba(255,255,255,0.3)", marginLeft: 4 }}>{aberto ? "▲" : "▼"}</div>
+              </div>
+            </div>
+
+            {/* Detalhes do dia — expande */}
+            {aberto && (
+              <div style={{ background: "#13131f", border: "1px solid rgba(255,255,255,0.07)", borderTop: "none", borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+                {itens.map((l, i) => {
+                  const cat = categorias.find((c) => c.id === l.categoria_id);
+                  const conta = contas.find((c) => c.id === l.conta_id);
+                  return (
+                    <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderBottom: i < itens.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: cat?.cor || "#6366f1", flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.descricao}</div>
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", display: "flex", gap: 8, marginTop: 2 }}>
+                          {cat && <span>{cat.nome}</span>}
+                          {conta && <span>· {conta.nome}</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {l.nf_url && <BtnAnexo url={l.nf_url} nome={l.nf_nome || "NF"} />}
+                          {l.comprovante_url && <BtnAnexo url={l.comprovante_url} nome={l.comprovante_nome || "Comprovante"} />}
+                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: l.tipo === "receita" ? "#34d399" : "#f87171", minWidth: 90, textAlign: "right" }}>
+                          {l.tipo === "receita" ? "+" : "-"}{fmt(Math.abs(Number(l.valor)))}
+                        </div>
+                        <button onClick={() => excluir(l.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14 }}>🗑</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {/* Modal preview de arquivo */}
       {preview && (
@@ -333,14 +410,11 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 14, color: "#fff", fontWeight: 500 }}>{preview.nome}</span>
               <div style={{ display: "flex", gap: 10 }}>
-                <a href={preview.url} download={preview.nome}
-                  style={{ background: "#6366f1", border: "none", borderRadius: 7, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 500, cursor: "pointer", textDecoration: "none" }}>
-                  ⬇ Baixar
-                </a>
+                <a href={preview.url} download={preview.nome} style={{ background: "#6366f1", borderRadius: 7, padding: "7px 14px", color: "#fff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}>⬇ Baixar</a>
                 <button onClick={() => setPreview(null)} style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 7, padding: "7px 12px", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕ Fechar</button>
               </div>
             </div>
-            <div style={{ flex: 1, overflow: "auto", borderRadius: 8, background: "rgba(255,255,255,0.03)" }}>
+            <div style={{ flex: 1, overflow: "auto", borderRadius: 8 }}>
               {preview.tipo === "application/pdf"
                 ? <iframe src={preview.url} style={{ width: "100%", height: "65vh", border: "none", borderRadius: 8 }} />
                 : <img src={preview.url} alt={preview.nome} style={{ maxWidth: "100%", maxHeight: "65vh", display: "block", margin: "0 auto", borderRadius: 8 }} />
