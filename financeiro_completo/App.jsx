@@ -37,9 +37,10 @@ const selectStyle = { ...inputStyle };
 
 // ── Login / Cadastro ───────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
-  const [email, setEmail] = useState("");
+  const emailUrl = new URLSearchParams(window.location.search).get("convite") || "";
+  const [email, setEmail] = useState(emailUrl);
   const [senha, setSenha] = useState("");
-  const [modo, setModo] = useState("login");
+  const [modo, setModo] = useState(emailUrl ? "cadastro" : "login");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
 
@@ -91,10 +92,11 @@ function LoginScreen({ onLogin }) {
 
 // ── Criar / Entrar em empresa ──────────────────────────────────────────────────
 function EmpresaSetup({ user, onEmpresa }) {
-  const [modo, setModo] = useState("criar");
   const [nome, setNome] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
+  // Detecta e-mail do convite na URL
+  const emailConvite = new URLSearchParams(window.location.search).get("convite") || "";
 
   const criarEmpresa = async () => {
     if (!nome.trim()) return alert("Digite o nome da empresa.");
@@ -1047,16 +1049,23 @@ function Usuarios({ empresa, userId }) {
 
   useEffect(()=>{ carregar(); },[carregar]);
 
+  const [linkGerado, setLinkGerado] = useState("");
+
   const convidar = async () => {
     if (!form.email) return alert("Digite o e-mail.");
     setLoading(true);
     try {
-      // Check if user exists in auth
       await sb("convites", { method:"POST", body:JSON.stringify({ empresa_id:empresa.id, email:form.email, perfil:form.perfil }) });
-      alert(`Convite registrado! Peça para ${form.email} criar uma conta no sistema. Ao entrar, os dados serão vinculados automaticamente.`);
-      setModal(false); setForm({ email:"", perfil:"financeiro" }); carregar();
+      const link = `${window.location.origin}?convite=${encodeURIComponent(form.email)}`;
+      setLinkGerado(link);
+      carregar();
     } catch(e) { alert("Erro: "+e.message); }
     setLoading(false);
+  };
+
+  const copiarLink = () => {
+    navigator.clipboard.writeText(linkGerado);
+    alert("Link copiado! Agora é só colar no WhatsApp.");
   };
 
   const remover = async (id, uid) => {
@@ -1090,17 +1099,40 @@ function Usuarios({ empresa, userId }) {
       </div>
 
       {modal && (
-        <Modal titulo="Convidar usuário" onClose={()=>setModal(false)}>
-          <div style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"12px 14px", fontSize:13, color:"rgba(255,255,255,0.6)", marginBottom:16 }}>
-            O usuário convidado deve criar uma conta no sistema com o e-mail informado. Após o login, os dados serão vinculados automaticamente à empresa.
-          </div>
-          <Campo label="E-mail do usuário"><input style={inputStyle} type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="email@exemplo.com" /></Campo>
-          <Campo label="Perfil de acesso">
-            <div style={{ display:"flex", gap:8 }}>
-              {[["financeiro","Financeiro","#34d399"],["visualizador","Visualizador","#818cf8"]].map(([v,l,c])=>(<button key={v} onClick={()=>setForm({...form,perfil:v})} style={{ flex:1, padding:"9px", borderRadius:7, border:`1px solid ${form.perfil===v?c:"rgba(255,255,255,0.1)"}`, background:form.perfil===v?c+"22":"transparent", color:form.perfil===v?c:"rgba(255,255,255,0.4)", fontSize:13, cursor:"pointer" }}>{l}</button>))}
-            </div>
-          </Campo>
-          <BtnRow onCancel={()=>setModal(false)} onSave={convidar} loading={loading} />
+        <Modal titulo="Convidar usuário" onClose={()=>{ setModal(false); setLinkGerado(""); setForm({email:"", perfil:"financeiro"}); }}>
+          {!linkGerado ? (
+            <>
+              <div style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"12px 14px", fontSize:13, color:"rgba(255,255,255,0.6)", marginBottom:16 }}>
+                Preencha o e-mail e perfil. Vamos gerar um link para você enviar pelo WhatsApp!
+              </div>
+              <Campo label="E-mail do usuário"><input style={inputStyle} type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="email@exemplo.com" /></Campo>
+              <Campo label="Perfil de acesso">
+                <div style={{ display:"flex", gap:8 }}>
+                  {[["financeiro","Financeiro","#34d399"],["visualizador","Visualizador","#818cf8"]].map(([v,l,c])=>(<button key={v} onClick={()=>setForm({...form,perfil:v})} style={{ flex:1, padding:"9px", borderRadius:7, border:`1px solid ${form.perfil===v?c:"rgba(255,255,255,0.1)"}`, background:form.perfil===v?c+"22":"transparent", color:form.perfil===v?c:"rgba(255,255,255,0.4)", fontSize:13, cursor:"pointer" }}>{l}</button>))}
+                </div>
+              </Campo>
+              <BtnRow onCancel={()=>setModal(false)} onSave={convidar} loading={loading} />
+            </>
+          ) : (
+            <>
+              <div style={{ background:"rgba(52,211,153,0.1)", border:"1px solid rgba(52,211,153,0.3)", borderRadius:8, padding:"12px 14px", fontSize:13, color:"#34d399", marginBottom:16 }}>
+                ✓ Convite registrado para <strong>{form.email}</strong>
+              </div>
+              <div style={{ fontSize:13, color:"rgba(255,255,255,0.6)", marginBottom:10 }}>
+                Copie o link abaixo e envie pelo WhatsApp:
+              </div>
+              <div style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"12px 14px", fontSize:12, color:"#818cf8", wordBreak:"break-all", marginBottom:14, fontFamily:"monospace" }}>
+                {linkGerado}
+              </div>
+              <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:16 }}>
+                ⚠️ A pessoa deve se cadastrar usando exatamente o e-mail <strong style={{ color:"#fff" }}>{form.email}</strong>
+              </div>
+              <div style={{ display:"flex", gap:10 }}>
+                <button onClick={()=>{ setModal(false); setLinkGerado(""); setForm({email:"", perfil:"financeiro"}); }} style={{ flex:1, padding:"11px", borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"transparent", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontSize:13 }}>Fechar</button>
+                <button onClick={copiarLink} style={{ flex:1, padding:"11px", borderRadius:8, border:"none", background:"#6366f1", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:500 }}>📋 Copiar link</button>
+              </div>
+            </>
+          )}
         </Modal>
       )}
     </div>
