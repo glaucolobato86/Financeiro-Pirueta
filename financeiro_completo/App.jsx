@@ -281,7 +281,7 @@ function Dashboard({ lancamentos, contas, investimentos, categorias }) {
 }
 
 // ── Lançamentos ────────────────────────────────────────────────────────────────
-function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
+function Lancamentos({ lancamentos, contas, categorias, subcategorias, userId, onRefresh }) {
   const [filtro, setFiltro] = useState("todos");
   const [modal, setModal] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -293,7 +293,7 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
   const primeiroDiaMes = new Date().toISOString().slice(0,7) + "-01";
   const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
   const [dataFim, setDataFim] = useState(hoje);
-  const [form, setForm] = useState({ descricao: "", valor: "", tipo: "despesa", data: new Date().toISOString().split("T")[0], categoria_id: "", conta_id: "", observacao: "" });
+  const [form, setForm] = useState({ descricao: "", valor: "", tipo: "despesa", data: new Date().toISOString().split("T")[0], categoria_id: "", subcategoria_id: "", conta_id: "", observacao: "" });
 
   const lista = useMemo(() => lancamentos.filter((l) => (filtro === "todos" || l.tipo === filtro) && (!dataInicio || l.data >= dataInicio) && (!dataFim || l.data <= dataFim)).sort((a, b) => new Date(b.data) - new Date(a.data)), [lancamentos, filtro, dataInicio, dataFim]);
 
@@ -343,9 +343,9 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
       let nf_url = null, nf_nome = null, comprovante_url = null, comprovante_nome = null;
       if (nf) { const r = await uploadArquivo(nf); nf_url = r.url; nf_nome = r.nome; }
       if (comp) { const r = await uploadArquivo(comp); comprovante_url = r.url; comprovante_nome = r.nome; }
-      await sb("lancamentos", { method: "POST", body: JSON.stringify({ ...form, valor: Number(form.valor), user_id: userId, categoria_id: form.categoria_id || null, conta_id: form.conta_id || null, nf_url, nf_nome, comprovante_url, comprovante_nome }) });
+      await sb("lancamentos", { method: "POST", body: JSON.stringify({ ...form, valor: Number(form.valor), user_id: userId, categoria_id: form.categoria_id || null, subcategoria_id: form.subcategoria_id || null, conta_id: form.conta_id || null, nf_url, nf_nome, comprovante_url, comprovante_nome }) });
       setModal(false); setNf(null); setComp(null);
-      setForm({ descricao: "", valor: "", tipo: "despesa", data: new Date().toISOString().split("T")[0], categoria_id: "", conta_id: "", observacao: "" });
+      setForm({ descricao: "", valor: "", tipo: "despesa", data: new Date().toISOString().split("T")[0], categoria_id: "", subcategoria_id: "", conta_id: "", observacao: "" });
       onRefresh();
     } catch (e) { alert("Erro ao salvar: " + e.message); }
     setLoading(false);
@@ -469,6 +469,7 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
                         <div style={{ fontSize: 13, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.descricao}</div>
                         <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", display: "flex", gap: 8, marginTop: 2 }}>
                           {cat && <span>{cat.nome}</span>}
+                          {l.subcategoria_id && subcategorias && <span>› {(subcategorias.find(s => s.id === l.subcategoria_id))?.nome}</span>}
                           {conta && <span>· {conta.nome}</span>}
                         </div>
                       </div>
@@ -528,7 +529,7 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
           </Campo>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Campo label="Categoria">
-              <select style={selectStyle} value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value })}>
+              <select style={selectStyle} value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value, subcategoria_id: "" })}>
                 <option value="">Sem categoria</option>
                 {categorias.filter((c) => c.tipo === form.tipo).map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
@@ -540,6 +541,14 @@ function Lancamentos({ lancamentos, contas, categorias, userId, onRefresh }) {
               </select>
             </Campo>
           </div>
+          {form.categoria_id && (subcategorias || []).filter(s => s.categoria_id === form.categoria_id).length > 0 && (
+            <Campo label="Subcategoria">
+              <select style={selectStyle} value={form.subcategoria_id || ""} onChange={(e) => setForm({ ...form, subcategoria_id: e.target.value })}>
+                <option value="">Sem subcategoria</option>
+                {(subcategorias || []).filter(s => s.categoria_id === form.categoria_id).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </Campo>
+          )}
           <Campo label="Observação"><textarea style={{ ...inputStyle, resize: "vertical", minHeight: 60 }} value={form.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} placeholder="Opcional" /></Campo>
           <Campo label="📄 Nota Fiscal (imagem ou PDF)">
             <input type="file" accept="image/*,.pdf" onChange={(e) => setNf(e.target.files[0])} style={{ ...inputStyle, padding: "8px 12px" }} />
@@ -783,8 +792,21 @@ function Orcamento({ orcamento, lancamentos, categorias, userId, onRefresh }) {
 // ── Categorias ─────────────────────────────────────────────────────────────────
 function Categorias({ categorias, userId, onRefresh }) {
   const [modal, setModal] = useState(false);
+  const [modalSub, setModalSub] = useState(null); // categoria pai
   const [loading, setLoading] = useState(false);
+  const [subcats, setSubcats] = useState([]);
+  const [expandido, setExpandido] = useState({});
   const [form, setForm] = useState({ nome: "", tipo: "despesa", cor: "#6366f1" });
+  const [formSub, setFormSub] = useState({ nome: "", cor: "#6366f1" });
+
+  const carregarSubs = async () => {
+    try {
+      const data = await sb(`subcategorias?user_id=eq.${userId}&order=nome.asc`);
+      setSubcats(data || []);
+    } catch(e) {}
+  };
+
+  useEffect(() => { carregarSubs(); }, [userId]);
 
   const salvar = async () => {
     if (!form.nome) return alert("Preencha o nome.");
@@ -796,32 +818,79 @@ function Categorias({ categorias, userId, onRefresh }) {
     setLoading(false);
   };
 
-  const excluir = async (id) => {
-    if (!confirm("Excluir esta categoria?")) return;
-    await sb(`categorias?id=eq.${id}`, { method: "DELETE", prefer: "" }); onRefresh();
+  const salvarSub = async () => {
+    if (!formSub.nome) return alert("Preencha o nome.");
+    setLoading(true);
+    try {
+      await sb("subcategorias", { method: "POST", body: JSON.stringify({ ...formSub, user_id: userId, categoria_id: modalSub.id }) });
+      setModalSub(null); setFormSub({ nome: "", cor: "#6366f1" }); carregarSubs();
+    } catch (e) { alert("Erro: " + e.message); }
+    setLoading(false);
   };
+
+  const excluir = async (id) => {
+    if (!confirm("Excluir esta categoria? As subcategorias também serão removidas.")) return;
+    await sb(`categorias?id=eq.${id}`, { method: "DELETE", prefer: "" }); onRefresh(); carregarSubs();
+  };
+
+  const excluirSub = async (id) => {
+    if (!confirm("Excluir esta subcategoria?")) return;
+    await sb(`subcategorias?id=eq.${id}`, { method: "DELETE", prefer: "" }); carregarSubs();
+  };
+
+  const toggleExpandido = (id) => setExpandido(prev => ({ ...prev, [id]: !prev[id] }));
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 600, color: "#fff", marginBottom: 4 }}>Categorias</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{categorias.length} categorias</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{categorias.length} categorias · {subcats.length} subcategorias</div>
         </div>
         <button onClick={() => setModal(true)} style={{ background: "#6366f1", border: "none", borderRadius: 8, padding: "9px 16px", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>+ Nova categoria</button>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
-        {categorias.length === 0 && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>Nenhuma categoria. Crie a primeira!</div>}
-        {categorias.map((cat) => (
-          <div key={cat.id} style={{ background: "#1a1a2e", borderLeft: `3px solid ${cat.cor || "#6366f1"}`, borderTop: "1px solid rgba(255,255,255,0.07)", borderRight: "1px solid rgba(255,255,255,0.07)", borderBottom: "1px solid rgba(255,255,255,0.07)", borderRadius: "0 10px 10px 0", padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontSize: 13, color: "#fff" }}>{cat.nome}</div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "capitalize" }}>{cat.tipo}</div>
+
+      {categorias.length === 0 && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.3)" }}>Nenhuma categoria. Crie a primeira!</div>}
+
+      {categorias.map((cat) => {
+        const subs = subcats.filter(s => s.categoria_id === cat.id);
+        const aberto = expandido[cat.id];
+        return (
+          <div key={cat.id} style={{ marginBottom: 8 }}>
+            {/* Categoria */}
+            <div style={{ background: "#1a1a2e", borderLeft: `3px solid ${cat.cor || "#6366f1"}`, border: "1px solid rgba(255,255,255,0.07)", borderRadius: aberto && subs.length > 0 ? "10px 10px 0 0" : 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, color: "#fff", fontWeight: 500 }}>{cat.nome}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", textTransform: "capitalize", marginTop: 2 }}>
+                  {cat.tipo} · {subs.length} subcategoria{subs.length !== 1 ? "s" : ""}
+                </div>
+              </div>
+              <button onClick={() => setModalSub(cat)}
+                style={{ background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 6, padding: "4px 10px", color: "#818cf8", fontSize: 11, cursor: "pointer" }}>
+                + Sub
+              </button>
+              {subs.length > 0 && (
+                <button onClick={() => toggleExpandido(cat.id)}
+                  style={{ background: "rgba(255,255,255,0.05)", border: "none", borderRadius: 6, padding: "4px 10px", color: "rgba(255,255,255,0.4)", fontSize: 11, cursor: "pointer" }}>
+                  {aberto ? "▲" : "▼"}
+                </button>
+              )}
+              <button onClick={() => excluir(cat.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14 }}>🗑</button>
             </div>
-            <button onClick={() => excluir(cat.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14 }}>🗑</button>
+
+            {/* Subcategorias */}
+            {aberto && subs.map((sub, i) => (
+              <div key={sub.id} style={{ background: "#13131f", borderLeft: `3px solid ${sub.cor || cat.cor || "#6366f1"}`, border: "1px solid rgba(255,255,255,0.05)", borderTop: "none", borderRadius: i === subs.length - 1 ? "0 0 10px 10px" : 0, padding: "9px 14px 9px 24px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: sub.cor || "#6366f1", flexShrink: 0 }} />
+                <div style={{ flex: 1, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>{sub.nome}</div>
+                <button onClick={() => excluirSub(sub.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 13 }}>🗑</button>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        );
+      })}
+
+      {/* Modal nova categoria */}
       {modal && (
         <Modal titulo="Nova categoria" onClose={() => setModal(false)}>
           <Campo label="Nome"><input style={inputStyle} value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Ex: Alimentação" /></Campo>
@@ -838,6 +907,19 @@ function Categorias({ categorias, userId, onRefresh }) {
             </div>
           </Campo>
           <BtnRow onCancel={() => setModal(false)} onSave={salvar} loading={loading} />
+        </Modal>
+      )}
+
+      {/* Modal nova subcategoria */}
+      {modalSub && (
+        <Modal titulo={`Nova subcategoria em "${modalSub.nome}"`} onClose={() => setModalSub(null)}>
+          <Campo label="Nome"><input style={inputStyle} value={formSub.nome} onChange={(e) => setFormSub({ ...formSub, nome: e.target.value })} placeholder="Ex: Supermercado" /></Campo>
+          <Campo label="Cor">
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {CORES.map((cor) => <div key={cor} onClick={() => setFormSub({ ...formSub, cor })} style={{ width: 28, height: 28, borderRadius: "50%", background: cor, cursor: "pointer", border: formSub.cor === cor ? "3px solid #fff" : "2px solid transparent" }} />)}
+            </div>
+          </Campo>
+          <BtnRow onCancel={() => setModalSub(null)} onSave={salvarSub} loading={loading} />
         </Modal>
       )}
     </div>
@@ -1128,7 +1210,7 @@ function Relatorios({ lancamentos, categorias, contas }) {
 
 
 // ── Contas a Pagar ────────────────────────────────────────────────────────────
-function ContasPagar({ categorias, userId, onRefresh }) {
+function ContasPagar({ categorias, subcategorias, userId, onRefresh }) {
   const [contas, setContas] = useState([]);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -1138,7 +1220,7 @@ function ContasPagar({ categorias, userId, onRefresh }) {
   const [preview, setPreview] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const hoje = new Date().toISOString().split("T")[0];
-  const [form, setForm] = useState({ descricao: "", valor: "", vencimento: "", categoria_id: "", tipo_custo: "variavel", recorrente: false, intervalo_meses: 1, observacao: "" });
+  const [form, setForm] = useState({ descricao: "", valor: "", vencimento: "", categoria_id: "", subcategoria_id: "", tipo_custo: "variavel", recorrente: false, intervalo_meses: 1, observacao: "" });
 
   const carregar = async () => {
     setCarregando(true);
@@ -1191,9 +1273,9 @@ function ContasPagar({ categorias, userId, onRefresh }) {
       let nf_url = null, nf_nome = null, comprovante_url = null, comprovante_nome = null;
       if (nf) { const r = await uploadArquivo(nf); nf_url = r.url; nf_nome = r.nome; }
       if (comp) { const r = await uploadArquivo(comp); comprovante_url = r.url; comprovante_nome = r.nome; }
-      await sb("contas_pagar", { method: "POST", body: JSON.stringify({ ...form, valor: Number(form.valor), user_id: userId, categoria_id: form.categoria_id || null, nf_url, nf_nome, comprovante_url, comprovante_nome }) });
+      await sb("contas_pagar", { method: "POST", body: JSON.stringify({ ...form, valor: Number(form.valor), user_id: userId, categoria_id: form.categoria_id || null, subcategoria_id: form.subcategoria_id || null, nf_url, nf_nome, comprovante_url, comprovante_nome }) });
       setModal(false); setNf(null); setComp(null);
-      setForm({ descricao: "", valor: "", vencimento: "", categoria_id: "", tipo_custo: "variavel", recorrente: false, intervalo_meses: 1, observacao: "" });
+      setForm({ descricao: "", valor: "", vencimento: "", categoria_id: "", subcategoria_id: "", tipo_custo: "variavel", recorrente: false, intervalo_meses: 1, observacao: "" });
       carregar();
     } catch(e) { alert("Erro: " + e.message); }
     setLoading(false);
@@ -1317,6 +1399,7 @@ function ContasPagar({ categorias, userId, onRefresh }) {
                     <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
                       <span style={{ fontSize: 11, background: (tipoCor[c.tipo_custo] || "#6366f1") + "22", color: tipoCor[c.tipo_custo] || "#6366f1", padding: "1px 7px", borderRadius: 4 }}>{tipoLabel[c.tipo_custo]}</span>
                       {cat && <span style={{ fontSize: 11, background: (cat.cor || "#6366f1") + "22", color: cat.cor || "#6366f1", padding: "1px 7px", borderRadius: 4 }}>{cat.nome}</span>}
+                    {c.subcategoria_id && subcategorias && (() => { const sub = subcategorias.find(s => s.id === c.subcategoria_id); return sub ? <span style={{ fontSize: 11, background: (sub.cor || "#6366f1") + "22", color: sub.cor || "#6366f1", padding: "1px 7px", borderRadius: 4 }}>› {sub.nome}</span> : null; })()}
                       {c.recorrente && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>🔄 Recorrente</span>}
                     </div>
                   </div>
@@ -1375,12 +1458,20 @@ function ContasPagar({ categorias, userId, onRefresh }) {
               </select>
             </Campo>
             <Campo label="Categoria">
-              <select style={selectStyle} value={form.categoria_id} onChange={e => setForm({...form, categoria_id: e.target.value})}>
+              <select style={selectStyle} value={form.categoria_id} onChange={e => setForm({...form, categoria_id: e.target.value, subcategoria_id: ""})}>
                 <option value="">Sem categoria</option>
                 {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </Campo>
           </div>
+          {form.categoria_id && (subcategorias || []).filter(s => s.categoria_id === form.categoria_id).length > 0 && (
+            <Campo label="Subcategoria">
+              <select style={selectStyle} value={form.subcategoria_id || ""} onChange={e => setForm({...form, subcategoria_id: e.target.value})}>
+                <option value="">Sem subcategoria</option>
+                {(subcategorias || []).filter(s => s.categoria_id === form.categoria_id).map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </Campo>
+          )}
           <Campo label="Recorrente?">
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button onClick={() => setForm({...form, recorrente: !form.recorrente})} style={{ padding: "7px 14px", borderRadius: 7, border: `1px solid ${form.recorrente ? "#6366f1" : "rgba(255,255,255,0.1)"}`, background: form.recorrente ? "rgba(99,102,241,0.15)" : "transparent", color: form.recorrente ? "#818cf8" : "rgba(255,255,255,0.4)", fontSize: 13, cursor: "pointer" }}>
@@ -1415,7 +1506,7 @@ function ContasPagar({ categorias, userId, onRefresh }) {
 export default function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.getItem("sb_user")); } catch { return null; } });
   const [tela, setTela] = useState("dashboard");
-  const [dados, setDados] = useState({ lancamentos: [], contas: [], investimentos: [], orcamento: [], categorias: [] });
+  const [dados, setDados] = useState({ lancamentos: [], contas: [], investimentos: [], orcamento: [], categorias: [], subcategorias: [] });
   const [carregando, setCarregando] = useState(false);
 
   const carregar = useCallback(async () => {
@@ -1423,14 +1514,15 @@ export default function App() {
     setCarregando(true);
     try {
       const uid = user.id;
-      const [lancamentos, contas, investimentos, orcamento, categorias] = await Promise.all([
+      const [lancamentos, contas, investimentos, orcamento, categorias, subcategorias] = await Promise.all([
         sb(`lancamentos?user_id=eq.${uid}&order=data.desc`),
         sb(`contas?user_id=eq.${uid}&order=nome.asc`),
         sb(`investimentos?user_id=eq.${uid}&order=nome.asc`),
         sb(`orcamento?user_id=eq.${uid}&order=ano.desc,mes.desc`),
         sb(`categorias?user_id=eq.${uid}&order=nome.asc`),
+        sb(`subcategorias?user_id=eq.${uid}&order=nome.asc`),
       ]);
-      setDados({ lancamentos, contas, investimentos, orcamento, categorias });
+      setDados({ lancamentos, contas, investimentos, orcamento, categorias, subcategorias });
     } catch (e) { console.error("Erro ao carregar:", e); }
     setCarregando(false);
   }, [user]);
