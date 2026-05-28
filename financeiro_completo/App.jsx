@@ -630,64 +630,6 @@ function Orcamento({ orcamento, lancamentos, categorias, empresaId, onRefresh, m
     </div>
   );
 }
-
-) {
-  const [modal, setModal] = useState(false);
-  const [modalSub, setModalSub] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [subcats, setSubcats] = useState([]);
-  const [expandido, setExpandido] = useState({});
-  const [form, setForm] = useState({ nome:"", tipo:"despesa", cor:"#6366f1" });
-  const [formSub, setFormSub] = useState({ nome:"", cor:"#6366f1" });
-  const podeCriar=membro?.perfil!=="visualizador";
-  const podeExcluir=membro?.perfil!=="visualizador";
-
-  const carregarSubs=useCallback(async()=>{ try{ const data=await sb(`subcategorias?empresa_id=eq.${empresaId}&order=nome.asc`); setSubcats(data||[]); }catch(e){} },[empresaId]);
-  useEffect(()=>{ carregarSubs(); },[carregarSubs]);
-
-  const salvar=async()=>{ if(!form.nome)return alert("Preencha o nome."); setLoading(true); try{ await sb("categorias",{method:"POST",body:JSON.stringify({...form,empresa_id:empresaId})}); setModal(false);setForm({nome:"",tipo:"despesa",cor:"#6366f1"});onRefresh(); }catch(e){alert("Erro: "+e.message);} setLoading(false); };
-  const salvarSub=async()=>{ if(!formSub.nome)return alert("Preencha o nome."); setLoading(true); try{ await sb("subcategorias",{method:"POST",body:JSON.stringify({...formSub,empresa_id:empresaId,categoria_id:modalSub.id})}); setModalSub(null);setFormSub({nome:"",cor:"#6366f1"});carregarSubs(); }catch(e){alert("Erro: "+e.message);} setLoading(false); };
-  const excluir=async(id)=>{ if(!confirm("Excluir esta categoria?"))return; await sb(`categorias?id=eq.${id}`,{method:"DELETE",prefer:""});onRefresh();carregarSubs(); };
-  const excluirSub=async(id)=>{ if(!confirm("Excluir subcategoria?"))return; await sb(`subcategorias?id=eq.${id}`,{method:"DELETE",prefer:""});carregarSubs(); };
-  const toggle=(id)=>setExpandido(prev=>({...prev,[id]:!prev[id]}));
-
-  return (
-    <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:22 }}>
-        <div><div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Categorias</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>{categorias.length} categorias · {subcats.length} subcategorias</div></div>
-        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:8, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Nova categoria</button>}
-      </div>
-      {categorias.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.3)" }}>Nenhuma categoria. Crie a primeira!</div>}
-      {categorias.map(cat=>{
-        const subs=subcats.filter(s=>s.categoria_id===cat.id);
-        const aberto=expandido[cat.id];
-        return (
-          <div key={cat.id} style={{ marginBottom:8 }}>
-            <div style={{ background:"#1a1a2e", borderLeft:`3px solid ${cat.cor||"#6366f1"}`, border:"1px solid rgba(255,255,255,0.07)", borderRadius:aberto&&subs.length>0?"10px 10px 0 0":10, padding:"12px 14px", display:"flex", alignItems:"center", gap:10 }}>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, color:"#fff", fontWeight:500 }}>{cat.nome}</div>
-                <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", textTransform:"capitalize", marginTop:2 }}>{cat.tipo} · {subs.length} subcategoria{subs.length!==1?"s":""}</div>
-              </div>
-              {podeCriar && <button onClick={()=>setModalSub(cat)} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:6, padding:"4px 10px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>+ Sub</button>}
-              {subs.length>0 && <button onClick={()=>toggle(cat.id)} style={{ background:"rgba(255,255,255,0.05)", border:"none", borderRadius:6, padding:"4px 10px", color:"rgba(255,255,255,0.5)", fontSize:11, cursor:"pointer" }}>{aberto?"▲":"▼"}</button>}
-              {podeExcluir && <button onClick={()=>excluir(cat.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
-            </div>
-            {aberto && subs.map((sub,i)=>(
-              <div key={sub.id} style={{ background:"#13131f", borderLeft:`3px solid ${sub.cor||cat.cor||"#6366f1"}`, border:"1px solid rgba(255,255,255,0.05)", borderTop:"none", borderRadius:i===subs.length-1?"0 0 10px 10px":0, padding:"9px 14px 9px 24px", display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ width:6, height:6, borderRadius:"50%", background:sub.cor||"#6366f1", flexShrink:0 }} />
-                <div style={{ flex:1, fontSize:12, color:"rgba(255,255,255,0.7)" }}>{sub.nome}</div>
-                {podeExcluir && <button onClick={()=>excluirSub(sub.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:13 }}>🗑</button>}
-              </div>
-            ))}
-          </div>
-        );
-      })}
-      {modal && (<Modal titulo="Nova categoria" onClose={()=>setModal(false)}><Campo label="Nome"><input style={inputStyle} value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Alimentação" /></Campo><Campo label="Tipo"><div style={{ display:"flex", gap:8 }}>{["despesa","receita"].map(t=>(<button key={t} onClick={()=>setForm({...form,tipo:t})} style={{ flex:1, padding:"9px", borderRadius:7, border:`1px solid ${form.tipo===t?"#6366f1":"rgba(255,255,255,0.1)"}`, background:form.tipo===t?"rgba(99,102,241,0.15)":"transparent", color:form.tipo===t?"#818cf8":"rgba(255,255,255,0.4)", fontSize:13, cursor:"pointer", textTransform:"capitalize" }}>{t}</button>))}</div></Campo><Campo label="Cor"><div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>{CORES.map(cor=><div key={cor} onClick={()=>setForm({...form,cor})} style={{ width:28, height:28, borderRadius:"50%", background:cor, cursor:"pointer", border:form.cor===cor?"3px solid #fff":"2px solid transparent" }} />)}</div></Campo><BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} /></Modal>)}
-      {modalSub && (<Modal titulo={`Nova subcategoria em "${modalSub.nome}"`} onClose={()=>setModalSub(null)}><Campo label="Nome"><input style={inputStyle} value={formSub.nome} onChange={e=>setFormSub({...formSub,nome:e.target.value})} placeholder="Ex: Supermercado" /></Campo><Campo label="Cor"><div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>{CORES.map(cor=><div key={cor} onClick={()=>setFormSub({...formSub,cor})} style={{ width:28, height:28, borderRadius:"50%", background:cor, cursor:"pointer", border:formSub.cor===cor?"3px solid #fff":"2px solid transparent" }} />)}</div></Campo><BtnRow onCancel={()=>setModalSub(null)} onSave={salvarSub} loading={loading} /></Modal>)}
-    </div>
-  );
-}
-
 // ── Relatórios ─────────────────────────────────────────────────────────────────
 function Relatorios({ lancamentos, categorias }) {
   const hoje=new Date().toISOString().split("T")[0];
