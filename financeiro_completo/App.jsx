@@ -340,10 +340,10 @@ function Dashboard({ lancamentos, contas, investimentos, categorias, subcategori
   const [pInicio, setPInicio] = useState(primeiroDia);
   const [pFim, setPFim] = useState(hoje);
   const [pCat, setPCat] = useState("");
-  const [pSub, setPSub] = useState("");
   const [pTipo, setPTipo] = useState("despesa");
 
-  const subsDisponiveis = useMemo(() => (subcategorias||[]).filter(s => s.categoria_id === pCat), [subcategorias, pCat]);
+  // Paleta de cores para subcategorias (quando não têm cor própria)
+  const PALETA = ["#6366f1","#f97316","#8b5cf6","#eab308","#06b6d4","#10b981","#ec4899","#ef4444","#a78bfa","#f59e0b"];
 
   const dadosPizza = useMemo(() => {
     const filtrados = lancamentos.filter(l => {
@@ -351,25 +351,28 @@ function Dashboard({ lancamentos, contas, investimentos, categorias, subcategori
       if (pInicio && l.data < pInicio) return false;
       if (pFim && l.data > pFim) return false;
       if (pCat && l.categoria_id !== pCat) return false;
-      if (pSub && l.subcategoria_id !== pSub) return false;
       return true;
     });
 
-    if (pSub) {
-      // Agrupado por subcategoria da sub selecionada
-      return [{ id: pSub, nome: (subcategorias||[]).find(s=>s.id===pSub)?.nome||"Subcategoria", cor:"#6366f1", total: filtrados.reduce((s,l)=>s+Number(l.valor),0) }].filter(x=>x.total>0);
-    }
     if (pCat) {
-      // Agrupado por subcategoria dentro da categoria
+      // Agrupado por subcategoria dentro da categoria selecionada
       const subs = (subcategorias||[]).filter(s=>s.categoria_id===pCat);
       const semSub = filtrados.filter(l=>!l.subcategoria_id).reduce((s,l)=>s+Number(l.valor),0);
-      const resultado = subs.map(s=>({ ...s, total: filtrados.filter(l=>l.subcategoria_id===s.id).reduce((x,l)=>x+Number(l.valor),0) })).filter(x=>x.total>0);
-      if (semSub>0) resultado.push({ id:"sem", nome:"Sem subcategoria", cor:"#aeaeb2", total:semSub });
+      const resultado = subs.map((s,i)=>({
+        ...s,
+        cor: s.cor || PALETA[i % PALETA.length],
+        total: filtrados.filter(l=>l.subcategoria_id===s.id).reduce((x,l)=>x+Number(l.valor),0)
+      })).filter(x=>x.total>0);
+      if (semSub>0) resultado.push({ id:"sem", nome:"Outros", cor:"#aeaeb2", total:semSub });
       return resultado.sort((a,b)=>b.total-a.total);
     }
-    // Agrupado por categoria
-    return categorias.filter(c=>c.tipo===pTipo).map(cat=>({ ...cat, total:filtrados.filter(l=>l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0) })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
-  }, [lancamentos, categorias, subcategorias, pInicio, pFim, pCat, pSub, pTipo]);
+    // Agrupado por categoria — usa a cor de cada categoria
+    return categorias.filter(c=>c.tipo===pTipo).map((cat,i)=>({
+      ...cat,
+      cor: cat.cor || PALETA[i % PALETA.length],
+      total: filtrados.filter(l=>l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0)
+    })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+  }, [lancamentos, categorias, subcategorias, pInicio, pFim, pCat, pTipo]);
 
   const totalPizza = dadosPizza.reduce((s,d)=>s+d.total,0);
 
@@ -431,7 +434,7 @@ function Dashboard({ lancamentos, contas, investimentos, categorias, subcategori
           {/* Tipo */}
           <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:3 }}>
             {[["despesa","Despesas"],["receita","Receitas"]].map(([v,l])=>(
-              <button key={v} onClick={()=>{ setPTipo(v); setPCat(""); setPSub(""); }}
+              <button key={v} onClick={()=>{ setPTipo(v); setPCat(""); }}
                 style={{ padding:"5px 12px", borderRadius:6, border:"none", background:pTipo===v?"rgba(99,102,241,0.25)":"transparent", color:pTipo===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:12, cursor:"pointer", fontWeight:pTipo===v?500:400 }}>{l}</button>
             ))}
           </div>
@@ -446,19 +449,11 @@ function Dashboard({ lancamentos, contas, investimentos, categorias, subcategori
           <button onClick={()=>{setPInicio("");setPFim("");}}
             style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 11px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Tudo</button>
           {/* Categoria */}
-          <select value={pCat} onChange={e=>{ setPCat(e.target.value); setPSub(""); }}
+          <select value={pCat} onChange={e=>setPCat(e.target.value)}
             style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }}>
             <option value="">Todas categorias</option>
             {categorias.filter(c=>c.tipo===pTipo).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
-          {/* Subcategoria */}
-          {pCat && subsDisponiveis.length > 0 && (
-            <select value={pSub} onChange={e=>setPSub(e.target.value)}
-              style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }}>
-              <option value="">Todas subcategorias</option>
-              {subsDisponiveis.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
-            </select>
-          )}
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, alignItems:"center" }}>
