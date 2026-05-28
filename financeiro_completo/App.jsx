@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, createContext, useContext } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 const SUPABASE_URL = "https://qxvnpexctvbmvzmyocnm.supabase.co";
 const SUPABASE_KEY = "sb_publishable_NPi6gX5WQBrduLRclb3H6w_FraikpyV";
@@ -29,40 +29,6 @@ const authFetch = async (endpoint, body) => {
   });
   return res.json();
 };
-
-
-// ── Tema ───────────────────────────────────────────────────────────────────────
-const TEMAS = {
-  claro: {
-    bg: "#f5f5f7", bgCard: "#ffffff", bgSidebar: "#ffffff",
-    bgInput: "#f0f0f5", bgHover: "#f5f5f7", bgActive: "#ede9fe",
-    border: "#e5e5ea", borderSub: "#f5f5f7",
-    text: "#1c1c1e", textSub: "#6b6b6b", textMuted: "#aeaeb2",
-    accent: "#6366f1", accentBg: "#ede9fe",
-    receita: "#16a34a", despesa: "#dc2626",
-    shadow: "0 1px 4px rgba(0,0,0,0.07)", shadowCard: "0 2px 8px rgba(0,0,0,0.06)",
-  },
-  escuro: {
-    bg: "#0a0a0f", bgCard: "#13131a", bgSidebar: "#0d0d14",
-    bgInput: "rgba(255,255,255,0.05)", bgHover: "rgba(255,255,255,0.03)", bgActive: "rgba(99,102,241,0.15)",
-    border: "rgba(255,255,255,0.08)", borderSub: "rgba(255,255,255,0.04)",
-    text: "#ffffff", textSub: "rgba(255,255,255,0.5)", textMuted: "rgba(255,255,255,0.3)",
-    accent: "#818cf8", accentBg: "rgba(99,102,241,0.15)",
-    receita: "#34d399", despesa: "#f87171",
-    shadow: "none", shadowCard: "none",
-  },
-};
-const TemaCtx = createContext(TEMAS.claro);
-const useTema = () => useContext(TemaCtx);
-
-function BotaoTema({ tema, setTema }) {
-  return (
-    <button onClick={() => setTema(tema === "claro" ? "escuro" : "claro")}
-      style={{ position: "fixed", top: 14, right: 18, zIndex: 500, background: tema === "claro" ? "#fff" : "#1a1a2e", border: `1px solid ${tema === "claro" ? "#e5e5ea" : "rgba(255,255,255,0.1)"}`, borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontSize: 12, color: tema === "claro" ? "#6b6b6b" : "rgba(255,255,255,0.6)", boxShadow: "0 1px 4px rgba(0,0,0,0.1)", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
-      {tema === "claro" ? "🌙 Escuro" : "☀️ Claro"}
-    </button>
-  );
-}
 
 const fmt = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const CORES = ["#6366f1","#e07b54","#7b6cf0","#e0b454","#54b0e0","#34d399","#e054a0","#f87171","#a78bfa","#fbbf24"];
@@ -107,10 +73,10 @@ function LoginScreen({ onLogin }) {
           <div key={label} style={{ marginBottom: 14 }}>
             <label style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</label>
             <input type={type} value={i===0?email:senha} onChange={e=>(i===0?setEmail:setSenha)(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handle()}
-              style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"11px 14px", color:T.text, fontSize:14, outline:"none", boxSizing:"border-box" }} />
+              style={{ width:"100%", background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:10, padding:"11px 14px", color:"#fff", fontSize:14, outline:"none", boxSizing:"border-box" }} />
           </div>
         ))}
-        <button onClick={handle} disabled={loading} style={{ width:"100%", background:loading?"rgba(99,102,241,0.5)":"#6366f1", border:"none", borderRadius:10, padding:"13px", color:T.text, fontSize:15, fontWeight:500, cursor:"pointer", marginTop:8 }}>
+        <button onClick={handle} disabled={loading} style={{ width:"100%", background:loading?"rgba(99,102,241,0.5)":"#6366f1", border:"none", borderRadius:10, padding:"13px", color:"#fff", fontSize:15, fontWeight:500, cursor:"pointer", marginTop:8 }}>
           {loading ? "Aguarde..." : modo==="login" ? "Entrar →" : "Criar conta →"}
         </button>
         <div style={{ marginTop:20, textAlign:"center", fontSize:13, color:"rgba(255,255,255,0.35)" }}>
@@ -121,7 +87,6 @@ function LoginScreen({ onLogin }) {
         </div>
       </div>
     </div>
-    </TemaCtx.Provider>
   );
 }
 
@@ -150,18 +115,18 @@ function EmpresaSetup({ user, onEmpresa }) {
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
       <div style={{ width:440, background:"#13131a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:20, padding:"40px" }}>
         <img src="/logo.png" alt="PRT" style={{ height:44, marginBottom:16, display:"block" }} />
-        <div style={{ fontSize:18, fontWeight:600, color:T.text, marginBottom:6 }}>Configurar empresa</div>
-        <div style={{ fontSize:13, color:T.textSub, marginBottom:24 }}>Logado como {user.email}</div>
+        <div style={{ fontSize:18, fontWeight:600, color:"#fff", marginBottom:6 }}>Configurar empresa</div>
+        <div style={{ fontSize:13, color:"rgba(255,255,255,0.5)", marginBottom:24 }}>Logado como {user.email}</div>
 
         {erro && <div style={{ background:"rgba(248,113,113,0.15)", border:"1px solid rgba(248,113,113,0.3)", borderRadius:8, padding:"10px 14px", fontSize:13, color:"#f87171", marginBottom:16 }}>{erro}</div>}
 
         <div style={{ marginBottom:16 }}>
-          <label style={{ fontSize:11, color:T.textSub, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.07em" }}>Nome da empresa</label>
+          <label style={{ fontSize:11, color:"rgba(255,255,255,0.5)", display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.07em" }}>Nome da empresa</label>
           <input value={nome} onChange={e=>setNome(e.target.value)} placeholder="Ex: PRT Criatividade e Estratégia"
             style={{ ...inputStyle }} />
         </div>
         <button onClick={criarEmpresa} disabled={loading}
-          style={{ width:"100%", background:loading?"rgba(99,102,241,0.5)":"#6366f1", border:"none", borderRadius:10, padding:"13px", color:T.text, fontSize:14, fontWeight:500, cursor:"pointer" }}>
+          style={{ width:"100%", background:loading?"rgba(99,102,241,0.5)":"#6366f1", border:"none", borderRadius:10, padding:"13px", color:"#fff", fontSize:14, fontWeight:500, cursor:"pointer" }}>
           {loading ? "Criando..." : "Criar empresa →"}
         </button>
         <div style={{ marginTop:16, fontSize:12, color:"rgba(255,255,255,0.25)", textAlign:"center" }}>
@@ -177,7 +142,7 @@ function Modal({ titulo, onClose, children }) {
   return (
     <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200 }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:"#13131a", border:"1px solid rgba(255,255,255,0.1)", borderRadius:18, padding:32, width:500, maxHeight:"90vh", overflowY:"auto" }}>
-        <div style={{ fontSize:18, fontWeight:600, color:T.text, marginBottom:22 }}>{titulo}</div>
+        <div style={{ fontSize:18, fontWeight:600, color:"#fff", marginBottom:22 }}>{titulo}</div>
         {children}
       </div>
     </div>
@@ -187,7 +152,7 @@ function Modal({ titulo, onClose, children }) {
 function Campo({ label, children }) {
   return (
     <div style={{ marginBottom:14 }}>
-      <label style={{ fontSize:11, color:T.textSub, display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.07em" }}>{label}</label>
+      <label style={{ fontSize:11, color:"rgba(255,255,255,0.5)", display:"block", marginBottom:6, textTransform:"uppercase", letterSpacing:"0.07em" }}>{label}</label>
       {children}
     </div>
   );
@@ -196,8 +161,8 @@ function Campo({ label, children }) {
 function BtnRow({ onCancel, onSave, loading }) {
   return (
     <div style={{ display:"flex", gap:10, marginTop:20 }}>
-      <button onClick={onCancel} style={{ flex:1, padding:"11px", borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"transparent", color:T.textSub, cursor:"pointer", fontSize:13 }}>Cancelar</button>
-      <button onClick={onSave} disabled={loading} style={{ flex:1, padding:"11px", borderRadius:8, border:"none", background:"#6366f1", color:T.text, cursor:"pointer", fontSize:13, fontWeight:500 }}>{loading?"Salvando...":"Salvar"}</button>
+      <button onClick={onCancel} style={{ flex:1, padding:"11px", borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"transparent", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontSize:13 }}>Cancelar</button>
+      <button onClick={onSave} disabled={loading} style={{ flex:1, padding:"11px", borderRadius:8, border:"none", background:"#6366f1", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:500 }}>{loading?"Salvando...":"Salvar"}</button>
     </div>
   );
 }
@@ -229,7 +194,7 @@ function Sidebar({ tela, setTela, user, empresa, membro, onLogout }) {
     <div style={{ width:230, background:"#13131a", borderRight:"1px solid rgba(255,255,255,0.06)", display:"flex", flexDirection:"column", flexShrink:0, position:"sticky", top:0, height:"100vh" }}>
       <div style={{ padding:"18px 20px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
         <img src="/logo.png" alt="PRT" style={{ height:40, display:"block", marginBottom:8 }} />
-        <div style={{ fontSize:11, color:T.textSub, fontWeight:500 }}>{empresa?.nome}</div>
+        <div style={{ fontSize:11, color:"rgba(255,255,255,0.5)", fontWeight:500 }}>{empresa?.nome}</div>
         <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{user?.email}</div>
         <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:1, textTransform:"capitalize" }}>Perfil: {membro?.perfil}</div>
       </div>
@@ -300,10 +265,10 @@ function PreviewModal({ preview, onClose }) {
     <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:300 }}>
       <div onClick={e=>e.stopPropagation()} style={{ background:"#13131a", border:"1px solid rgba(255,255,255,0.1)", borderRadius:16, padding:24, width:"80vw", maxWidth:800, maxHeight:"90vh", display:"flex", flexDirection:"column", gap:14 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <span style={{ fontSize:14, color:T.text, fontWeight:500 }}>{preview.nome}</span>
+          <span style={{ fontSize:14, color:"#fff", fontWeight:500 }}>{preview.nome}</span>
           <div style={{ display:"flex", gap:10 }}>
-            <a href={preview.url} download={preview.nome} style={{ background:"#6366f1", borderRadius:7, padding:"7px 14px", color:T.text, fontSize:12, fontWeight:500, textDecoration:"none" }}>⬇ Baixar</a>
-            <button onClick={onClose} style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:7, padding:"7px 12px", color:T.text, fontSize:12, cursor:"pointer" }}>✕ Fechar</button>
+            <a href={preview.url} download={preview.nome} style={{ background:"#6366f1", borderRadius:7, padding:"7px 14px", color:"#fff", fontSize:12, fontWeight:500, textDecoration:"none" }}>⬇ Baixar</a>
+            <button onClick={onClose} style={{ background:"rgba(255,255,255,0.1)", border:"none", borderRadius:7, padding:"7px 12px", color:"#fff", fontSize:12, cursor:"pointer" }}>✕ Fechar</button>
           </div>
         </div>
         <div style={{ flex:1, overflow:"auto", borderRadius:8 }}>
@@ -326,25 +291,25 @@ function Dashboard({ lancamentos, contas, investimentos, categorias }) {
   const ultimos = [...lancamentos].sort((a,b)=>new Date(b.data)-new Date(a.data)).slice(0,7);
   return (
     <div>
-      <div style={{ fontSize:22, fontWeight:600, color:T.text, marginBottom:4 }}>Dashboard</div>
+      <div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Dashboard</div>
       <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", marginBottom:22 }}>Visão geral da empresa</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         {[["Saldo em contas",saldo,"#fff"],["Receitas",rec,"#34d399"],["Despesas",desp,"#f87171"],["Investimentos",invest,"#a78bfa"]].map(([label,value,cor])=>(
-          <div key={label} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:"16px 18px" }}>
-            <div style={{ fontSize:11, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>{label}</div>
+          <div key={label} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px" }}>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>{label}</div>
             <div style={{ fontSize:20, fontWeight:600, color:cor }}>{fmt(value)}</div>
           </div>
         ))}
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-        <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:18 }}>
-          <div style={{ fontSize:13, fontWeight:500, color:T.textSub, marginBottom:14 }}>Despesas por categoria</div>
+        <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
+          <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:14 }}>Despesas por categoria</div>
           {porCat.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhum lançamento ainda.</div>}
           {porCat.map(cat=>(
             <div key={cat.id} style={{ marginBottom:12 }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
                 <span style={{ fontSize:12, color:"rgba(255,255,255,0.65)" }}>{cat.nome}</span>
-                <span style={{ fontSize:12, color:T.textSub }}>{fmt(cat.total)}</span>
+                <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>{fmt(cat.total)}</span>
               </div>
               <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
                 <div style={{ width:`${desp?(cat.total/desp*100):0}%`, height:"100%", borderRadius:999, background:cat.cor||"#6366f1" }} />
@@ -352,17 +317,17 @@ function Dashboard({ lancamentos, contas, investimentos, categorias }) {
             </div>
           ))}
         </div>
-        <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:18 }}>
-          <div style={{ fontSize:13, fontWeight:500, color:T.textSub, marginBottom:14 }}>Últimos lançamentos</div>
+        <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
+          <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:14 }}>Últimos lançamentos</div>
           {ultimos.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhum lançamento ainda.</div>}
           {ultimos.map(l=>{
             const cat=categorias.find(c=>c.id===l.categoria_id);
             return (
-              <div key={l.id} style={{ display:"flex", alignItems:"center", gap:10, paddingBottom:10, marginBottom:10, borderBottom:`1px solid ${T.border}` }}>
+              <div key={l.id} style={{ display:"flex", alignItems:"center", gap:10, paddingBottom:10, marginBottom:10, borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
                 <div style={{ width:7, height:7, borderRadius:"50%", background:cat?.cor||"#6366f1", flexShrink:0 }} />
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:12, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.descricao}</div>
-                  <div style={{ fontSize:11, color:T.textMuted }}>{cat?.nome||"—"} · {l.data}</div>
+                  <div style={{ fontSize:12, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.descricao}</div>
+                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>{cat?.nome||"—"} · {l.data}</div>
                 </div>
                 <div style={{ fontSize:12, fontWeight:500, color:l.tipo==="receita"?"#34d399":"#f87171", flexShrink:0 }}>
                   {l.tipo==="receita"?"+":""}{fmt(l.valor)}
@@ -429,21 +394,21 @@ function Lancamentos({ lancamentos, contas, categorias, subcategorias, empresaId
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
         <div>
-          <div style={{ fontSize:22, fontWeight:600, color:T.text, marginBottom:4 }}>Lançamentos</div>
+          <div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Lançamentos</div>
           <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>{lista.length} registros</div>
         </div>
-        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Novo lançamento</button>}
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:8, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Novo lançamento</button>}
       </div>
 
-      <div style={{ display:"flex", alignItems:"center", gap:12, background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:10, padding:"12px 16px", marginBottom:14, flexWrap:"wrap" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 16px", marginBottom:14, flexWrap:"wrap" }}>
         {[["De",dataInicio,setDataInicio],["Até",dataFim,setDataFim]].map(([label,val,set])=>(
           <div key={label} style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:12, color:T.textSub }}>{label}</span>
-            <input type="date" value={val} onChange={e=>set(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"6px 10px", color:T.text, fontSize:12, outline:"none" }} />
+            <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>{label}</span>
+            <input type="date" value={val} onChange={e=>set(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} />
           </div>
         ))}
         <button onClick={()=>{setDataInicio(primeiroDiaMes);setDataFim(hoje);}} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:6, padding:"6px 12px", color:"#818cf8", fontSize:12, cursor:"pointer" }}>Mês atual</button>
-        <button onClick={()=>{setDataInicio("");setDataFim("");}} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"6px 12px", color:T.textSub, fontSize:12, cursor:"pointer" }}>Tudo</button>
+        <button onClick={()=>{setDataInicio("");setDataFim("");}} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"6px 12px", color:"rgba(255,255,255,0.5)", fontSize:12, cursor:"pointer" }}>Tudo</button>
       </div>
 
       <div style={{ display:"flex", gap:7, marginBottom:16 }}>
@@ -454,7 +419,7 @@ function Lancamentos({ lancamentos, contas, categorias, subcategorias, empresaId
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:18 }}>
         {[["Total de receitas",totalGeral.receita,"#34d399"],["Total de despesas",totalGeral.despesa,"#f87171"],["Resultado",totalGeral.receita-totalGeral.despesa,totalGeral.receita-totalGeral.despesa>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
-          <div key={l} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:10, padding:"12px 16px" }}>
+          <div key={l} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 16px" }}>
             <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:5 }}>{l}</div>
             <div style={{ fontSize:17, fontWeight:600, color:c }}>{fmt(v)}</div>
           </div>
@@ -469,14 +434,14 @@ function Lancamentos({ lancamentos, contas, categorias, subcategorias, empresaId
         const {dia,mes,semana}=fmtData(data);
         return (
           <div key={data} style={{ marginBottom:8 }}>
-            <div onClick={()=>toggleDia(data)} style={{ display:"flex", alignItems:"center", gap:14, background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:aberto?"10px 10px 0 0":10, padding:"12px 16px", cursor:"pointer", userSelect:"none" }}>
+            <div onClick={()=>toggleDia(data)} style={{ display:"flex", alignItems:"center", gap:14, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:aberto?"10px 10px 0 0":10, padding:"12px 16px", cursor:"pointer", userSelect:"none" }}>
               <div style={{ textAlign:"center", minWidth:44, background:"rgba(99,102,241,0.15)", borderRadius:8, padding:"6px 8px" }}>
                 <div style={{ fontSize:18, fontWeight:600, color:"#818cf8", lineHeight:1 }}>{dia}</div>
-                <div style={{ fontSize:10, color:T.textMuted, textTransform:"uppercase" }}>{mes}</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", textTransform:"uppercase" }}>{mes}</div>
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, color:T.text, fontWeight:500 }}>{semana}</div>
-                <div style={{ fontSize:11, color:T.textMuted }}>{itens.length} lançamento{itens.length!==1?"s":""}</div>
+                <div style={{ fontSize:13, color:"#fff", fontWeight:500 }}>{semana}</div>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>{itens.length} lançamento{itens.length!==1?"s":""}</div>
               </div>
               <div style={{ display:"flex", gap:20, alignItems:"center" }}>
                 {rec>0 && <div style={{ textAlign:"right" }}>
@@ -487,7 +452,7 @@ function Lancamentos({ lancamentos, contas, categorias, subcategorias, empresaId
                   <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", textTransform:"uppercase" }}>Saída</div>
                   <div style={{ fontSize:14, fontWeight:600, color:"#f87171" }}>{fmt(desp)}</div>
                 </div>}
-                <div style={{ fontSize:16, color:T.textMuted }}>{aberto?"▲":"▼"}</div>
+                <div style={{ fontSize:16, color:"rgba(255,255,255,0.3)" }}>{aberto?"▲":"▼"}</div>
               </div>
             </div>
             {aberto && (
@@ -500,10 +465,10 @@ function Lancamentos({ lancamentos, contas, categorias, subcategorias, empresaId
                     <div key={l.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 16px", borderBottom:i<itens.length-1?"1px solid rgba(255,255,255,0.04)":"none" }}>
                       <div style={{ width:8, height:8, borderRadius:"50%", background:cat?.cor||"#6366f1", flexShrink:0 }} />
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, color:T.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.descricao}</div>
-                        <div style={{ fontSize:11, color:T.textMuted, display:"flex", gap:6, marginTop:2, flexWrap:"wrap" }}>
+                        <div style={{ fontSize:13, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.descricao}</div>
+                        <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", display:"flex", gap:6, marginTop:2, flexWrap:"wrap" }}>
                           {cat && <span>{cat.nome}</span>}
-                          {sub && <span style={{ color:T.textSub }}>› {sub.nome}</span>}
+                          {sub && <span style={{ color:"rgba(255,255,255,0.5)" }}>› {sub.nome}</span>}
                           {conta && <span>· {conta.nome}</span>}
                         </div>
                       </div>
@@ -630,14 +595,14 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
         <div>
-          <div style={{ fontSize:22, fontWeight:600, color:T.text, marginBottom:4 }}>Contas a Pagar</div>
+          <div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Contas a Pagar</div>
           <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>{contas.length} contas cadastradas</div>
         </div>
-        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Nova conta</button>}
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:8, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Nova conta</button>}
       </div>
 
-      <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:"14px 20px", marginBottom:16, display:"flex", gap:28, flexWrap:"wrap", alignItems:"center" }}>
-        <div style={{ fontSize:12, fontWeight:600, color:T.textSub, textTransform:"uppercase", letterSpacing:"0.06em" }}>Totais em aberto</div>
+      <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"14px 20px", marginBottom:16, display:"flex", gap:28, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:"0.06em" }}>Totais em aberto</div>
         {[["Custo Fixo",totais.fixo,"#818cf8"],["Custo Variável",totais.variavel,"#fbbf24"],["Investimento",totais.investimento,"#34d399"],["Total",totalGeral,"#f87171"]].map(([l,v,c])=>(
           <div key={l}><div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", textTransform:"uppercase", marginBottom:3 }}>{l}</div><div style={{ fontSize:15, fontWeight:600, color:c }}>{fmt(v)}</div></div>
         ))}
@@ -649,7 +614,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
         ))}
       </div>
 
-      {carregando && <div style={{ color:T.textMuted, fontSize:13 }}>Carregando...</div>}
+      {carregando && <div style={{ color:"rgba(255,255,255,0.3)", fontSize:13 }}>Carregando...</div>}
       {!carregando && diasOrdenados.length===0 && <div style={{ color:"rgba(255,255,255,0.25)", fontSize:13, padding:20 }}>Nenhuma conta encontrada.</div>}
 
       {diasOrdenados.map(([data,itens])=>{
@@ -663,11 +628,11 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
             <div style={{ display:"flex", alignItems:"center", gap:14, background:"#1a1a2e", border:`1px solid ${corDia}44`, borderRadius:"10px 10px 0 0", padding:"10px 16px" }}>
               <div style={{ textAlign:"center", minWidth:44, background:corDia+"22", borderRadius:8, padding:"5px 8px" }}>
                 <div style={{ fontSize:18, fontWeight:600, color:corDia, lineHeight:1 }}>{dia}</div>
-                <div style={{ fontSize:10, color:T.textMuted, textTransform:"uppercase" }}>{mes}</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", textTransform:"uppercase" }}>{mes}</div>
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, color:T.text, fontWeight:500 }}>{dia}/{mes}/{ano}</div>
-                <div style={{ fontSize:11, color:T.textMuted }}>{itens.length} conta{itens.length!==1?"s":""}</div>
+                <div style={{ fontSize:13, color:"#fff", fontWeight:500 }}>{dia}/{mes}/{ano}</div>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>{itens.length} conta{itens.length!==1?"s":""}</div>
               </div>
               <div style={{ textAlign:"right" }}>
                 <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", textTransform:"uppercase" }}>Total</div>
@@ -684,10 +649,10 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
               return (
                 <div key={c.id} style={{ background:"#13131f", border:"1px solid rgba(255,255,255,0.05)", borderTop:"none", borderRadius:i===itens.length-1?"0 0 10px 10px":0, padding:"12px 16px", display:"flex", alignItems:"center", gap:12 }}>
                   <div style={{ background:si.bg, border:`1px solid ${si.cor}44`, borderRadius:6, padding:"3px 8px", fontSize:11, color:si.cor, fontWeight:500, whiteSpace:"nowrap", minWidth:80, textAlign:"center" }}>{si.icon} {si.label}</div>
-                  {st!=="pago" && podeCriar && (<button onClick={()=>marcarPago(c.id)} title="Marcar como pago" style={{ width:34, height:34, borderRadius:"50%", background:"#16a34a", border:"none", color:T.text, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>💲</button>)}
+                  {st!=="pago" && podeCriar && (<button onClick={()=>marcarPago(c.id)} title="Marcar como pago" style={{ width:34, height:34, borderRadius:"50%", background:"#16a34a", border:"none", color:"#fff", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>💲</button>)}
                   {st==="pago" && <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(52,211,153,0.2)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:16 }}>✓</div>}
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, color:T.text, fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.descricao}</div>
+                    <div style={{ fontSize:13, color:"#fff", fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.descricao}</div>
                     <div style={{ display:"flex", gap:6, marginTop:3, flexWrap:"wrap" }}>
                       <span style={{ fontSize:11, background:(tipoCor[c.tipo_custo]||"#6366f1")+"22", color:tipoCor[c.tipo_custo]||"#6366f1", padding:"1px 7px", borderRadius:4 }}>{tipoLabel[c.tipo_custo]}</span>
                       {cat && <span style={{ fontSize:11, background:(cat.cor||"#6366f1")+"22", color:cat.cor||"#6366f1", padding:"1px 7px", borderRadius:4 }}>{cat.nome}</span>}
@@ -765,17 +730,17 @@ function Contas({ contas, empresaId, onRefresh, membro }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:22 }}>
-        <div><div style={{ fontSize:22, fontWeight:600, color:T.text, marginBottom:4 }}>Contas bancárias</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>Saldo consolidado: {fmt(total)}</div></div>
-        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Nova conta</button>}
+        <div><div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Contas bancárias</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>Saldo consolidado: {fmt(total)}</div></div>
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:8, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Nova conta</button>}
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:14 }}>
-        {contas.length===0 && <div style={{ fontSize:13, color:T.textMuted }}>Nenhuma conta cadastrada.</div>}
+        {contas.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.3)" }}>Nenhuma conta cadastrada.</div>}
         {contas.map(c=>(
-          <div key={c.id} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:18, position:"relative" }}>
+          <div key={c.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18, position:"relative" }}>
             {podeExcluir && <button onClick={()=>excluir(c.id)} style={{ position:"absolute", top:12, right:12, background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
             <div style={{ width:34, height:34, borderRadius:9, background:(c.cor||"#6366f1")+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, marginBottom:12 }}>💳</div>
-            <div style={{ fontSize:12, color:T.textSub, marginBottom:4 }}>{c.banco}</div>
-            <div style={{ fontSize:20, fontWeight:600, color:T.text, marginBottom:10 }}>{fmt(c.saldo)}</div>
+            <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:4 }}>{c.banco}</div>
+            <div style={{ fontSize:20, fontWeight:600, color:"#fff", marginBottom:10 }}>{fmt(c.saldo)}</div>
             <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
               <div style={{ width:`${total?(Math.min(Number(c.saldo)/total,1)*100):0}%`, height:"100%", background:c.cor||"#6366f1", borderRadius:999 }} />
             </div>
@@ -814,26 +779,26 @@ function Investimentos({ investimentos, empresaId, onRefresh, membro }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:22 }}>
-        <div><div style={{ fontSize:22, fontWeight:600, color:T.text, marginBottom:4 }}>Investimentos</div></div>
-        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Novo</button>}
+        <div><div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Investimentos</div></div>
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:8, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Novo</button>}
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:18 }}>
         {[["Valor atual",fmt(tAtual),"#fff"],["Rendimento",fmt(rend),"#34d399"],["Rentabilidade",`+${pct}%`,"#a78bfa"]].map(([l,v,c])=>(
-          <div key={l} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:"16px 18px" }}>
-            <div style={{ fontSize:11, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>{l}</div>
+          <div key={l} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px" }}>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>{l}</div>
             <div style={{ fontSize:20, fontWeight:600, color:c }}>{v}</div>
           </div>
         ))}
       </div>
-      {investimentos.length===0 && <div style={{ fontSize:13, color:T.textMuted }}>Nenhum investimento.</div>}
+      {investimentos.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.3)" }}>Nenhum investimento.</div>}
       {investimentos.map(inv=>{
         const r=Number(inv.valor_atual)-Number(inv.valor_inicial);
         const p=Number(inv.valor_inicial)?((r/Number(inv.valor_inicial))*100).toFixed(2):"0.00";
         return (
-          <div key={inv.id} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:"14px 16px", marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-            <div><div style={{ fontSize:13, color:T.text, marginBottom:4 }}>{inv.nome}</div><span style={{ background:"rgba(167,139,250,0.15)", color:"#a78bfa", padding:"2px 8px", borderRadius:5, fontSize:11 }}>{inv.tipo}</span></div>
+          <div key={inv.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"14px 16px", marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div><div style={{ fontSize:13, color:"#fff", marginBottom:4 }}>{inv.nome}</div><span style={{ background:"rgba(167,139,250,0.15)", color:"#a78bfa", padding:"2px 8px", borderRadius:5, fontSize:11 }}>{inv.tipo}</span></div>
             <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-              <div style={{ textAlign:"right" }}><div style={{ fontSize:15, fontWeight:600, color:T.text }}>{fmt(inv.valor_atual)}</div><div style={{ fontSize:11, color:"#34d399" }}>+{fmt(r)} ({p}%)</div></div>
+              <div style={{ textAlign:"right" }}><div style={{ fontSize:15, fontWeight:600, color:"#fff" }}>{fmt(inv.valor_atual)}</div><div style={{ fontSize:11, color:"#34d399" }}>+{fmt(r)} ({p}%)</div></div>
               {podeExcluir && <button onClick={()=>excluir(inv.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
             </div>
           </div>
@@ -869,25 +834,25 @@ function Orcamento({ orcamento, lancamentos, categorias, empresaId, onRefresh, m
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:22 }}>
-        <div><div style={{ fontSize:22, fontWeight:600, color:T.text, marginBottom:4 }}>Orçamento mensal</div></div>
-        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Definir limite</button>}
+        <div><div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Orçamento mensal</div></div>
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:8, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Definir limite</button>}
       </div>
-      {orcamento.length===0 && <div style={{ fontSize:13, color:T.textMuted }}>Nenhum orçamento definido.</div>}
+      {orcamento.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.3)" }}>Nenhum orçamento definido.</div>}
       {orcamento.map(o=>{
         const cat=categorias.find(c=>c.id===o.categoria_id);
         const gasto=lancamentos.filter(l=>l.categoria_id===o.categoria_id&&l.tipo==="despesa"&&new Date(l.data).getMonth()+1===o.mes&&new Date(l.data).getFullYear()===o.ano).reduce((s,l)=>s+Number(l.valor),0);
         const pct=Math.min((gasto/Number(o.limite))*100,100);
         const cor=pct>=90?"#f87171":pct>=70?"#fbbf24":cat?.cor||"#6366f1";
         return (
-          <div key={o.id} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:"16px 18px", marginBottom:10 }}>
+          <div key={o.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px", marginBottom:10 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:10 }}>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <div style={{ width:8, height:8, borderRadius:"50%", background:cat?.cor||"#6366f1" }} />
-                <span style={{ fontSize:13, color:T.text }}>{cat?.nome||"—"}</span>
-                <span style={{ fontSize:11, color:T.textMuted }}>{o.mes}/{o.ano}</span>
+                <span style={{ fontSize:13, color:"#fff" }}>{cat?.nome||"—"}</span>
+                <span style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>{o.mes}/{o.ano}</span>
               </div>
               <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                <span style={{ fontSize:12, color:T.textSub }}>{fmt(gasto)} de {fmt(o.limite)}</span>
+                <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>{fmt(gasto)} de {fmt(o.limite)}</span>
                 <span style={{ fontSize:12, fontWeight:500, color:cor }}>{pct.toFixed(0)}%</span>
                 {pct>=90 && <span>⚠️</span>}
                 <button onClick={()=>excluir(o.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>
@@ -939,10 +904,10 @@ function Categorias({ categorias, empresaId, onRefresh, membro }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:22 }}>
-        <div><div style={{ fontSize:22, fontWeight:600, color:T.text, marginBottom:4 }}>Categorias</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>{categorias.length} categorias · {subcats.length} subcategorias</div></div>
-        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Nova categoria</button>}
+        <div><div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Categorias</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>{categorias.length} categorias · {subcats.length} subcategorias</div></div>
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:8, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Nova categoria</button>}
       </div>
-      {categorias.length===0 && <div style={{ fontSize:13, color:T.textMuted }}>Nenhuma categoria. Crie a primeira!</div>}
+      {categorias.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.3)" }}>Nenhuma categoria. Crie a primeira!</div>}
       {categorias.map(cat=>{
         const subs=subcats.filter(s=>s.categoria_id===cat.id);
         const aberto=expandido[cat.id];
@@ -950,11 +915,11 @@ function Categorias({ categorias, empresaId, onRefresh, membro }) {
           <div key={cat.id} style={{ marginBottom:8 }}>
             <div style={{ background:"#1a1a2e", borderLeft:`3px solid ${cat.cor||"#6366f1"}`, border:"1px solid rgba(255,255,255,0.07)", borderRadius:aberto&&subs.length>0?"10px 10px 0 0":10, padding:"12px 14px", display:"flex", alignItems:"center", gap:10 }}>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, color:T.text, fontWeight:500 }}>{cat.nome}</div>
+                <div style={{ fontSize:13, color:"#fff", fontWeight:500 }}>{cat.nome}</div>
                 <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", textTransform:"capitalize", marginTop:2 }}>{cat.tipo} · {subs.length} subcategoria{subs.length!==1?"s":""}</div>
               </div>
               {podeCriar && <button onClick={()=>setModalSub(cat)} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:6, padding:"4px 10px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>+ Sub</button>}
-              {subs.length>0 && <button onClick={()=>toggle(cat.id)} style={{ background:"rgba(255,255,255,0.05)", border:"none", borderRadius:6, padding:"4px 10px", color:T.textSub, fontSize:11, cursor:"pointer" }}>{aberto?"▲":"▼"}</button>}
+              {subs.length>0 && <button onClick={()=>toggle(cat.id)} style={{ background:"rgba(255,255,255,0.05)", border:"none", borderRadius:6, padding:"4px 10px", color:"rgba(255,255,255,0.5)", fontSize:11, cursor:"pointer" }}>{aberto?"▲":"▼"}</button>}
               {podeExcluir && <button onClick={()=>excluir(cat.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
             </div>
             {aberto && subs.map((sub,i)=>(
@@ -999,13 +964,13 @@ function Relatorios({ lancamentos, categorias }) {
 
   return (
     <div>
-      <div style={{ fontSize:22, fontWeight:600, color:T.text, marginBottom:4 }}>Relatórios</div>
+      <div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Relatórios</div>
       <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", marginBottom:18 }}>Análise financeira por período</div>
       <div style={{ display:"flex", gap:6, marginBottom:16, borderBottom:"1px solid rgba(255,255,255,0.07)", paddingBottom:12 }}>
         {abas.map(a=>(<button key={a.id} onClick={()=>setAba(a.id)} style={{ padding:"7px 16px", borderRadius:7, border:`1px solid ${aba===a.id?"#6366f1":"rgba(255,255,255,0.1)"}`, background:aba===a.id?"rgba(99,102,241,0.18)":"transparent", color:aba===a.id?"#818cf8":"rgba(255,255,255,0.45)", fontSize:13, cursor:"pointer", fontWeight:aba===a.id?500:400 }}>{a.label}</button>))}
       </div>
-      <div style={{ display:"flex", alignItems:"center", gap:12, background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:10, padding:"12px 16px", marginBottom:14, flexWrap:"wrap" }}>
-        {[["De",inicio,setInicio],["Até",fim,setFim]].map(([label,val,set])=>(<div key={label} style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:12, color:T.textSub }}>{label}</span><input type="date" value={val} onChange={e=>set(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"6px 10px", color:T.text, fontSize:12, outline:"none" }} /></div>))}
+      <div style={{ display:"flex", alignItems:"center", gap:12, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 16px", marginBottom:14, flexWrap:"wrap" }}>
+        {[["De",inicio,setInicio],["Até",fim,setFim]].map(([label,val,set])=>(<div key={label} style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>{label}</span><input type="date" value={val} onChange={e=>set(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} /></div>))}
         <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:6, padding:"6px 12px", color:"#818cf8", fontSize:12, cursor:"pointer" }}>Mês atual</button>
       </div>
       <div style={{ display:"flex", gap:10, marginBottom:20 }}>
@@ -1013,19 +978,19 @@ function Relatorios({ lancamentos, categorias }) {
         <select style={{ ...selectStyle, width:"auto", minWidth:140 }} value={filtroCat} onChange={e=>setFiltroCat(e.target.value)}><option value="">Categoria: Todas</option>{categorias.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
-        {[["Receitas",rec,"#34d399"],["Despesas",desp,"#f87171"],["Resultado",res,res>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(<div key={l} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:"16px 18px" }}><div style={{ fontSize:11, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>{l}</div><div style={{ fontSize:20, fontWeight:600, color:c }}>{fmt(v)}</div></div>))}
+        {[["Receitas",rec,"#34d399"],["Despesas",desp,"#f87171"],["Resultado",res,res>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(<div key={l} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px" }}><div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>{l}</div><div style={{ fontSize:20, fontWeight:600, color:c }}>{fmt(v)}</div></div>))}
       </div>
 
       {aba==="balancete" && (
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-          <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:20 }}>
-            <div style={{ fontSize:13, fontWeight:500, color:T.textSub, marginBottom:14, textTransform:"uppercase", letterSpacing:"0.06em" }}>Despesas por categoria</div>
+          <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
+            <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:14, textTransform:"uppercase", letterSpacing:"0.06em" }}>Despesas por categoria</div>
             {porCat.length===0 && <div style={{ color:"rgba(255,255,255,0.25)", fontSize:13 }}>Sem dados.</div>}
-            {porCat.map(cat=>(<div key={cat.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}><div style={{ display:"flex", alignItems:"center", gap:8 }}><div style={{ width:8, height:8, borderRadius:2, background:cat.cor||"#6366f1" }} /><span style={{ fontSize:13, color:"rgba(255,255,255,0.75)" }}>{cat.nome}</span></div><div style={{ textAlign:"right" }}><div style={{ fontSize:13, fontWeight:500, color:"#f87171" }}>{fmt(cat.total)}</div><div style={{ fontSize:10, color:T.textMuted }}>{desp?((cat.total/desp)*100).toFixed(1):0}%</div></div></div>))}
-            {desp>0 && <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0 0", marginTop:4, borderTop:"1px solid rgba(255,255,255,0.1)" }}><span style={{ fontSize:13, fontWeight:500, color:T.text }}>Total</span><span style={{ fontSize:13, fontWeight:600, color:"#f87171" }}>{fmt(desp)}</span></div>}
+            {porCat.map(cat=>(<div key={cat.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}><div style={{ display:"flex", alignItems:"center", gap:8 }}><div style={{ width:8, height:8, borderRadius:2, background:cat.cor||"#6366f1" }} /><span style={{ fontSize:13, color:"rgba(255,255,255,0.75)" }}>{cat.nome}</span></div><div style={{ textAlign:"right" }}><div style={{ fontSize:13, fontWeight:500, color:"#f87171" }}>{fmt(cat.total)}</div><div style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>{desp?((cat.total/desp)*100).toFixed(1):0}%</div></div></div>))}
+            {desp>0 && <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0 0", marginTop:4, borderTop:"1px solid rgba(255,255,255,0.1)" }}><span style={{ fontSize:13, fontWeight:500, color:"#fff" }}>Total</span><span style={{ fontSize:13, fontWeight:600, color:"#f87171" }}>{fmt(desp)}</span></div>}
           </div>
-          <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:20 }}>
-            <div style={{ fontSize:13, fontWeight:500, color:T.textSub, marginBottom:14, textTransform:"uppercase", letterSpacing:"0.06em" }}>Receitas por categoria</div>
+          <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
+            <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:14, textTransform:"uppercase", letterSpacing:"0.06em" }}>Receitas por categoria</div>
             {porCatRec.length===0 && <div style={{ color:"rgba(255,255,255,0.25)", fontSize:13 }}>Sem dados.</div>}
             {porCatRec.map(cat=>(<div key={cat.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}><div style={{ display:"flex", alignItems:"center", gap:8 }}><div style={{ width:8, height:8, borderRadius:2, background:cat.cor||"#6366f1" }} /><span style={{ fontSize:13, color:"rgba(255,255,255,0.75)" }}>{cat.nome}</span></div><div style={{ fontSize:13, fontWeight:500, color:"#34d399" }}>{fmt(cat.total)}</div></div>))}
           </div>
@@ -1033,33 +998,33 @@ function Relatorios({ lancamentos, categorias }) {
       )}
 
       {aba==="caixa" && (
-        <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, overflow:"hidden" }}>
+        <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
           <table style={{ width:"100%", borderCollapse:"collapse" }}>
             <thead><tr style={{ borderBottom:"1px solid rgba(255,255,255,0.07)", background:"rgba(255,255,255,0.02)" }}>{["Data","Dia","Entradas","Saídas","Saldo do dia","Saldo acum."].map(h=>(<th key={h} style={{ padding:"11px 14px", textAlign:"left", fontSize:10, color:"rgba(255,255,255,0.35)", fontWeight:500, textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</th>))}</tr></thead>
             <tbody>
               {porDia.length===0 && <tr><td colSpan={6} style={{ padding:24, textAlign:"center", color:"rgba(255,255,255,0.25)", fontSize:13 }}>Sem movimentações.</td></tr>}
-              {(()=>{ let acum=0; return porDia.map(([data,v])=>{ const sd=v.rec-v.desp; acum+=sd; const [y,m,d]=data.split("-"); const ds=dias[new Date(Number(y),Number(m)-1,Number(d)).getDay()]; return (<tr key={data} style={{ borderBottom:"1px solid rgba(255,255,255,0.04)" }}><td style={{ padding:"10px 14px", fontSize:12, color:T.textSub }}>{d}/{m}/{y}</td><td style={{ padding:"10px 14px", fontSize:12, color:T.textSub }}>{ds}</td><td style={{ padding:"10px 14px", fontSize:12, color:"#34d399", fontWeight:500 }}>{v.rec>0?fmt(v.rec):"—"}</td><td style={{ padding:"10px 14px", fontSize:12, color:"#f87171", fontWeight:500 }}>{v.desp>0?fmt(v.desp):"—"}</td><td style={{ padding:"10px 14px", fontSize:12, fontWeight:600, color:sd>=0?"#34d399":"#f87171" }}>{fmt(sd)}</td><td style={{ padding:"10px 14px", fontSize:12, fontWeight:600, color:acum>=0?"#818cf8":"#f87171" }}>{fmt(acum)}</td></tr>); }); })()}
+              {(()=>{ let acum=0; return porDia.map(([data,v])=>{ const sd=v.rec-v.desp; acum+=sd; const [y,m,d]=data.split("-"); const ds=dias[new Date(Number(y),Number(m)-1,Number(d)).getDay()]; return (<tr key={data} style={{ borderBottom:"1px solid rgba(255,255,255,0.04)" }}><td style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.5)" }}>{d}/{m}/{y}</td><td style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.5)" }}>{ds}</td><td style={{ padding:"10px 14px", fontSize:12, color:"#34d399", fontWeight:500 }}>{v.rec>0?fmt(v.rec):"—"}</td><td style={{ padding:"10px 14px", fontSize:12, color:"#f87171", fontWeight:500 }}>{v.desp>0?fmt(v.desp):"—"}</td><td style={{ padding:"10px 14px", fontSize:12, fontWeight:600, color:sd>=0?"#34d399":"#f87171" }}>{fmt(sd)}</td><td style={{ padding:"10px 14px", fontSize:12, fontWeight:600, color:acum>=0?"#818cf8":"#f87171" }}>{fmt(acum)}</td></tr>); }); })()}
             </tbody>
           </table>
         </div>
       )}
 
       {aba==="dre" && (
-        <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:24 }}>
-          <div style={{ fontSize:11, fontWeight:500, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:16 }}>DRE — {inicio} a {fim}</div>
+        <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:24 }}>
+          <div style={{ fontSize:11, fontWeight:500, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:16 }}>DRE — {inicio} a {fim}</div>
           <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0", borderBottom:"1px solid rgba(255,255,255,0.06)" }}><span style={{ fontSize:13, color:"rgba(255,255,255,0.65)" }}>( + ) Receita bruta</span><span style={{ fontSize:13, color:"#34d399", fontWeight:500 }}>{fmt(rec)}</span></div>
-          {porCat.map(cat=>(<div key={cat.id} style={{ display:"flex", justifyContent:"space-between", padding:"9px 0 9px 14px", borderBottom:"1px solid rgba(255,255,255,0.04)" }}><span style={{ fontSize:12, color:T.textSub }}>( − ) {cat.nome}</span><span style={{ fontSize:12, color:"#f87171" }}>({fmt(cat.total)})</span></div>))}
+          {porCat.map(cat=>(<div key={cat.id} style={{ display:"flex", justifyContent:"space-between", padding:"9px 0 9px 14px", borderBottom:"1px solid rgba(255,255,255,0.04)" }}><span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>( − ) {cat.nome}</span><span style={{ fontSize:12, color:"#f87171" }}>({fmt(cat.total)})</span></div>))}
           {porCat.length===0 && <div style={{ padding:"9px 0 9px 14px", fontSize:12, color:"rgba(255,255,255,0.25)" }}>Nenhuma despesa.</div>}
           <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0", borderTop:"1px solid rgba(255,255,255,0.1)", marginTop:6 }}><span style={{ fontSize:13, color:"rgba(255,255,255,0.65)" }}>( = ) Despesas totais</span><span style={{ fontSize:13, color:"#f87171", fontWeight:500 }}>({fmt(desp)})</span></div>
-          <div style={{ display:"flex", justifyContent:"space-between", padding:"14px 0 4px", borderTop:"2px solid rgba(255,255,255,0.15)", marginTop:4 }}><span style={{ fontSize:15, color:T.text, fontWeight:500 }}>( = ) Resultado líquido</span><div style={{ textAlign:"right" }}><div style={{ fontSize:22, fontWeight:600, color:res>=0?"#34d399":"#f87171" }}>{fmt(res)}</div><div style={{ fontSize:11, color:"rgba(255,255,255,0.35)" }}>Margem: {rec?((res/rec)*100).toFixed(1):"0.0"}%</div></div></div>
+          <div style={{ display:"flex", justifyContent:"space-between", padding:"14px 0 4px", borderTop:"2px solid rgba(255,255,255,0.15)", marginTop:4 }}><span style={{ fontSize:15, color:"#fff", fontWeight:500 }}>( = ) Resultado líquido</span><div style={{ textAlign:"right" }}><div style={{ fontSize:22, fontWeight:600, color:res>=0?"#34d399":"#f87171" }}>{fmt(res)}</div><div style={{ fontSize:11, color:"rgba(255,255,255,0.35)" }}>Margem: {rec?((res/rec)*100).toFixed(1):"0.0"}%</div></div></div>
         </div>
       )}
 
       {aba==="categorias_rel" && (
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
           {[["Receitas por categoria",porCatRec,rec,"#34d399"],["Despesas por categoria",porCat,desp,"#f87171"]].map(([titulo,dados,total,cor])=>(
-            <div key={titulo} style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, padding:20 }}>
-              <div style={{ fontSize:13, fontWeight:500, color:T.textSub, marginBottom:14, textTransform:"uppercase", letterSpacing:"0.06em" }}>{titulo}</div>
+            <div key={titulo} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
+              <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:14, textTransform:"uppercase", letterSpacing:"0.06em" }}>{titulo}</div>
               {dados.length===0 && <div style={{ color:"rgba(255,255,255,0.25)", fontSize:13 }}>Sem dados.</div>}
               {dados.map(cat=>(<div key={cat.id} style={{ marginBottom:12 }}><div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}><span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>{cat.nome}</span><span style={{ fontSize:12, color:cor }}>{fmt(cat.total)}</span></div><div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:999 }}><div style={{ width:`${total?(cat.total/total*100):0}%`, height:"100%", background:cat.cor||cor, borderRadius:999 }} /></div></div>))}
             </div>
@@ -1114,17 +1079,17 @@ function Usuarios({ empresa, userId }) {
   return (
     <div>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:22 }}>
-        <div><div style={{ fontSize:22, fontWeight:600, color:T.text, marginBottom:4 }}>Usuários</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>{membros.length} membros da empresa</div></div>
-        <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Convidar usuário</button>
+        <div><div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Usuários</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>{membros.length} membros da empresa</div></div>
+        <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:8, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Convidar usuário</button>
       </div>
 
-      <div style={{ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:12, overflow:"hidden" }}>
+      <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
         <table style={{ width:"100%", borderCollapse:"collapse" }}>
           <thead><tr style={{ borderBottom:"1px solid rgba(255,255,255,0.07)" }}>{["E-mail","Nome","Perfil","Desde",""].map(h=>(<th key={h} style={{ padding:"11px 16px", textAlign:"left", fontSize:10, color:"rgba(255,255,255,0.35)", fontWeight:500, textTransform:"uppercase" }}>{h}</th>))}</tr></thead>
           <tbody>
             {membros.map(m=>(<tr key={m.id} style={{ borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-              <td style={{ padding:"12px 16px", fontSize:13, color:T.text }}>{m.email}</td>
-              <td style={{ padding:"12px 16px", fontSize:13, color:T.textSub }}>{m.nome||"—"}</td>
+              <td style={{ padding:"12px 16px", fontSize:13, color:"#fff" }}>{m.email}</td>
+              <td style={{ padding:"12px 16px", fontSize:13, color:"rgba(255,255,255,0.5)" }}>{m.nome||"—"}</td>
               <td style={{ padding:"12px 16px" }}><span style={{ background:(perfilCor[m.perfil]||"#6366f1")+"22", color:perfilCor[m.perfil]||"#6366f1", padding:"3px 10px", borderRadius:5, fontSize:12, textTransform:"capitalize" }}>{m.perfil}</span></td>
               <td style={{ padding:"12px 16px", fontSize:12, color:"rgba(255,255,255,0.35)" }}>{new Date(m.created_at).toLocaleDateString("pt-BR")}</td>
               <td style={{ padding:"12px 16px" }}>{m.user_id!==userId && <button onClick={()=>remover(m.id,m.user_id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}</td>
@@ -1137,7 +1102,7 @@ function Usuarios({ empresa, userId }) {
         <Modal titulo="Convidar usuário" onClose={()=>{ setModal(false); setLinkGerado(""); setForm({email:"", perfil:"financeiro"}); }}>
           {!linkGerado ? (
             <>
-              <div style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"12px 14px", fontSize:13, color:T.textSub, marginBottom:16 }}>
+              <div style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"12px 14px", fontSize:13, color:"rgba(255,255,255,0.5)", marginBottom:16 }}>
                 Preencha o e-mail e perfil. Vamos gerar um link para você enviar pelo WhatsApp!
               </div>
               <Campo label="E-mail do usuário"><input style={inputStyle} type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="email@exemplo.com" /></Campo>
@@ -1153,18 +1118,18 @@ function Usuarios({ empresa, userId }) {
               <div style={{ background:"rgba(52,211,153,0.1)", border:"1px solid rgba(52,211,153,0.3)", borderRadius:8, padding:"12px 14px", fontSize:13, color:"#34d399", marginBottom:16 }}>
                 ✓ Convite registrado para <strong>{form.email}</strong>
               </div>
-              <div style={{ fontSize:13, color:T.textSub, marginBottom:10 }}>
+              <div style={{ fontSize:13, color:"rgba(255,255,255,0.5)", marginBottom:10 }}>
                 Copie o link abaixo e envie pelo WhatsApp:
               </div>
               <div style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"12px 14px", fontSize:12, color:"#818cf8", wordBreak:"break-all", marginBottom:14, fontFamily:"monospace" }}>
                 {linkGerado}
               </div>
-              <div style={{ fontSize:12, color:T.textSub, marginBottom:16 }}>
-                ⚠️ A pessoa deve se cadastrar usando exatamente o e-mail <strong style={{ color:T.text }}>{form.email}</strong>
+              <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:16 }}>
+                ⚠️ A pessoa deve se cadastrar usando exatamente o e-mail <strong style={{ color:"#fff" }}>{form.email}</strong>
               </div>
               <div style={{ display:"flex", gap:10 }}>
-                <button onClick={()=>{ setModal(false); setLinkGerado(""); setForm({email:"", perfil:"financeiro"}); }} style={{ flex:1, padding:"11px", borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"transparent", color:T.textSub, cursor:"pointer", fontSize:13 }}>Fechar</button>
-                <button onClick={copiarLink} style={{ flex:1, padding:"11px", borderRadius:8, border:"none", background:"#6366f1", color:T.text, cursor:"pointer", fontSize:13, fontWeight:500 }}>📋 Copiar link</button>
+                <button onClick={()=>{ setModal(false); setLinkGerado(""); setForm({email:"", perfil:"financeiro"}); }} style={{ flex:1, padding:"11px", borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"transparent", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontSize:13 }}>Fechar</button>
+                <button onClick={copiarLink} style={{ flex:1, padding:"11px", borderRadius:8, border:"none", background:"#6366f1", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:500 }}>📋 Copiar link</button>
               </div>
             </>
           )}
@@ -1176,9 +1141,8 @@ function Usuarios({ empresa, userId }) {
 
 // ── App principal ──────────────────────────────────────────────────────────────
 export default function App() {
-  const [tema, setTema] = useState(() => localStorage.getItem("tema") || "claro");
-  const salvarTema = (t) => { setTema(t); localStorage.setItem("tema", t); };
-  const T = TEMAS[tema];
+  const [tema, setTema] = useState(() => localStorage.getItem("prt_tema") || "escuro");
+  const trocarTema = () => { const novo = tema === "escuro" ? "claro" : "escuro"; setTema(novo); localStorage.setItem("prt_tema", novo); };
   const [user, setUser] = useState(()=>{ try{return JSON.parse(localStorage.getItem("sb_user"));}catch{return null;} });
   const [empresa, setEmpresa] = useState(null);
   const [membro, setMembro] = useState(null);
@@ -1245,21 +1209,18 @@ export default function App() {
   const logout = () => { localStorage.removeItem("sb_token"); localStorage.removeItem("sb_user"); setUser(null); setEmpresa(null); setMembro(null); };
 
   if (!user) return <LoginScreen onLogin={u=>setUser(u)} />;
-  if (verificando) return (<div style={{ minHeight:"100vh", background:"#0a0a0f", display:"flex", alignItems:"center", justifyContent:"center", color:T.textSub, fontFamily:"'DM Sans', sans-serif", fontSize:14 }}><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />Verificando acesso...</div>);
+  if (verificando) return (<div style={{ minHeight:"100vh", background:"#0a0a0f", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.5)", fontFamily:"'DM Sans', sans-serif", fontSize:14 }}><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />Verificando acesso...</div>);
   if (!empresa) return <EmpresaSetup user={user} onEmpresa={(emp, perfil) => { setEmpresa(emp); setMembro({ perfil }); }} />;
 
   const props = { ...dados, empresaId:empresa.id, userId:user.id, onRefresh:carregar, membro };
 
   return (
-    <TemaCtx.Provider value={T}>
-    <div style={{ display:"flex", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", background:T.bg, color:T.text, transition:"background 0.3s, color 0.3s" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap'); *{box-sizing:border-box}`}</style>
-      <BotaoTema tema={tema} setTema={salvarTema} />
+    <div style={{ display:"flex", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", background:"#0a0a0f", color:"#fff", transition:"background 0.3s, color 0.3s" }}>
       <Sidebar tela={tela} setTela={setTela} user={user} empresa={empresa} membro={membro} onLogout={logout} />
       <div style={{ flex:1, overflowY:"auto" }}>
         <div style={{ padding:"28px 32px", maxWidth:1100 }}>
           {carregando ? (
-            <div style={{ color:T.textMuted, fontSize:14, paddingTop:40 }}>Carregando...</div>
+            <div style={{ color:"rgba(255,255,255,0.3)", fontSize:14, paddingTop:40 }}>Carregando...</div>
           ) : (
             <>
               {tela==="dashboard"     && <Dashboard {...props} />}
@@ -1276,6 +1237,5 @@ export default function App() {
         </div>
       </div>
     </div>
-    </TemaCtx.Provider>
   );
 }
