@@ -286,66 +286,6 @@ function PreviewModal({ preview, onClose }) {
     </div>
   );
 }
-
-) {
-  const rec = lancamentos.filter(l=>l.tipo==="receita").reduce((s,l)=>s+Number(l.valor),0);
-  const desp = lancamentos.filter(l=>l.tipo==="despesa").reduce((s,l)=>s+Number(l.valor),0);
-  const saldo = contas.reduce((s,c)=>s+Number(c.saldo),0);
-  const invest = investimentos.reduce((s,i)=>s+Number(i.valor_atual),0);
-  const porCat = categorias.filter(c=>c.tipo==="despesa").map(cat=>({ ...cat, total:lancamentos.filter(l=>l.categoria_id===cat.id&&l.tipo==="despesa").reduce((s,l)=>s+Number(l.valor),0) })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total).slice(0,6);
-  const ultimos = [...lancamentos].sort((a,b)=>new Date(b.data)-new Date(a.data)).slice(0,7);
-  return (
-    <div>
-      <div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Dashboard</div>
-      <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", marginBottom:22 }}>Visão geral da empresa</div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
-        {[["Saldo em contas",saldo,"#fff"],["Receitas",rec,"#34d399"],["Despesas",desp,"#f87171"],["Investimentos",invest,"#a78bfa"]].map(([label,value,cor])=>(
-          <div key={label} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px" }}>
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>{label}</div>
-            <div style={{ fontSize:20, fontWeight:600, color:cor }}>{fmt(value)}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-        <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
-          <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:14 }}>Despesas por categoria</div>
-          {porCat.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhum lançamento ainda.</div>}
-          {porCat.map(cat=>(
-            <div key={cat.id} style={{ marginBottom:12 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                <span style={{ fontSize:12, color:"rgba(255,255,255,0.65)" }}>{cat.nome}</span>
-                <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>{fmt(cat.total)}</span>
-              </div>
-              <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
-                <div style={{ width:`${desp?(cat.total/desp*100):0}%`, height:"100%", borderRadius:999, background:cat.cor||"#6366f1" }} />
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
-          <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:14 }}>Últimos lançamentos</div>
-          {ultimos.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhum lançamento ainda.</div>}
-          {ultimos.map(l=>{
-            const cat=categorias.find(c=>c.id===l.categoria_id);
-            return (
-              <div key={l.id} style={{ display:"flex", alignItems:"center", gap:10, paddingBottom:10, marginBottom:10, borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
-                <div style={{ width:7, height:7, borderRadius:"50%", background:cat?.cor||"#6366f1", flexShrink:0 }} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:12, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.descricao}</div>
-                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>{cat?.nome||"—"} · {l.data}</div>
-                </div>
-                <div style={{ fontSize:12, fontWeight:500, color:l.tipo==="receita"?"#34d399":"#f87171", flexShrink:0 }}>
-                  {l.tipo==="receita"?"+":""}{fmt(l.valor)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Contas a Pagar ─────────────────────────────────────────────────────────────
 function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, membro }) {
   const [contas, setContas] = useState([]);
