@@ -901,7 +901,7 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
       })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
     }
     return categorias.filter(c=>c.grupo===pTipo).map((cat,i)=>({
-      ...cat, cor: cat.cor || PALETA[i%PALETA.length],
+      ...cat, cor: PALETA[i%PALETA.length],
       total: filtrados.filter(l=>l.tipo_lancamento===pTipo&&l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0)
     })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
   }, [filtrados, categorias, pTipo]);
@@ -912,7 +912,7 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
     if(!pCatSel || pTipo==="todos") return [];
     const subs = (subcats||[]).filter(s=>s.categoria_id===pCatSel.id);
     const semSub = filtrados.filter(l=>l.tipo_lancamento===pTipo&&l.categoria_id===pCatSel.id&&!l.subcategoria_id).reduce((s,l)=>s+Number(l.valor),0);
-    const result = subs.map((s,i)=>({...s, cor:s.cor||PALETA[(i+3)%PALETA.length], total:filtrados.filter(l=>l.subcategoria_id===s.id).reduce((x,l)=>x+Number(l.valor),0)})).filter(s=>s.total>0);
+    const result = subs.map((s,i)=>({...s, cor:PALETA[(i+4)%PALETA.length], total:filtrados.filter(l=>l.subcategoria_id===s.id).reduce((x,l)=>x+Number(l.valor),0)})).filter(s=>s.total>0);
     if(semSub>0) result.push({id:"sem",nome:"Sem subcategoria",cor:"#64748b",total:semSub});
     return result.sort((a,b)=>b.total-a.total);
   }, [filtrados, pCatSel, subcats, pTipo]);
