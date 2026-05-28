@@ -663,7 +663,7 @@ function Relatorios({ lancamentos, categorias }) {
       </div>
       <div style={{ display:"flex", alignItems:"center", gap:12, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 16px", marginBottom:14, flexWrap:"wrap" }}>
         {[["De",inicio,setInicio],["Até",fim,setFim]].map(([label,val,set])=>(<div key={label} style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>{label}</span><input type="date" value={val} onChange={e=>set(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} /></div>))}
-        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:6, padding:"6px 12px", color:"#818cf8", fontSize:12, cursor:"pointer" }}>Mês atual</button>
+        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:6, padding:"6px 12px", color:"#818cf8", fontSize:12, cursor:"pointer" }}>Mês atual</button>
       </div>
       <div style={{ display:"flex", gap:10, marginBottom:20 }}>
         <select style={{ ...selectStyle, width:"auto", minWidth:140 }} value={filtroTipo} onChange={e=>setFiltroTipo(e.target.value)}><option value="todos">Tipo: Todos</option><option value="receita">Receitas</option><option value="despesa">Despesas</option></select>
@@ -848,8 +848,8 @@ const fmtPct = (v) => `${Number(v).toFixed(1)}%`;
 function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTela }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-  const [inicio, setInicio] = useState(primeiroDia);
-  const [fim, setFim] = useState(hoje);
+  const [inicio, setInicio] = useState(primeiroDia());
+  const [fim, setFim] = useState(hoje());
 
   const filtrados = useMemo(()=>lancamentos.filter(l=>{
     if(inicio && l.data_competencia < inicio) return false;
@@ -880,6 +880,14 @@ function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTel
     ...cat, total: filtrados.filter(l=>l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0)
   })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
 
+  // Pizza chart
+  const [pTipo, setPTipo] = useState("receita_operacional");
+  const PALETA = ["#6366f1","#f97316","#8b5cf6","#eab308","#06b6d4","#10b981","#ec4899","#ef4444","#a78bfa","#f59e0b","#84cc16","#14b8a6"];
+  const porCatPizza = useMemo(()=>categorias.filter(c=>c.grupo===pTipo).map((cat,i)=>({
+    ...cat, cor: cat.cor || PALETA[i%PALETA.length],
+    total: filtrados.filter(l=>l.tipo_lancamento===pTipo&&l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0)
+  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total), [filtrados, categorias, pTipo]);
+
   const card = (label,valor,cor,sub=null,click=null) => (
     <div onClick={click} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px", cursor:click?"pointer":"default" }}>
       <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8, fontWeight:600 }}>{label}</div>
@@ -899,8 +907,8 @@ function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTel
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês atual</button>
-        <button onClick={()=>{ const a=new Date(); setInicio(new Date(a.getFullYear(),0,1).toISOString().split("T")[0]); setFim(hoje); }} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Ano</button>
+        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês atual</button>
+        <button onClick={()=>{ const a=new Date(); setInicio(new Date(a.getFullYear(),0,1).toISOString().split("T")[0]); setFim(hoje()); }} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Ano</button>
         <button onClick={()=>{setInicio("");setFim("");}} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Tudo</button>
       </div>
 
@@ -958,6 +966,51 @@ function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTel
           ))}
         </div>
       </div>
+
+      {/* Gráfico Pizza */}
+      <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20, marginTop:16 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.6)" }}>Análise por gráfico</div>
+          <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:3 }}>
+            {[["receita_operacional","Receitas Op."],["despesa_operacional","Despesas Op."],["repasse_terceiros","Repasses"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setPTipo(v)} style={{ padding:"5px 10px", borderRadius:6, border:"none", background:pTipo===v?"rgba(99,102,241,0.25)":"transparent", color:pTipo===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:11, cursor:"pointer", fontWeight:pTipo===v?500:400 }}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", gap:24, alignItems:"center" }}>
+          {/* Pizza SVG */}
+          {(()=>{
+            const dados = porCatPizza;
+            const total = dados.reduce((s,d)=>s+d.total,0);
+            if(!dados.length||total===0) return <div style={{ color:"rgba(255,255,255,0.2)", fontSize:13, padding:"40px 0", gridColumn:"1/-1", textAlign:"center" }}>Sem dados no período</div>;
+            let angulo=0; const cx=90,cy=90,raio=75,furo=38;
+            const fatias=dados.map(d=>{ const pct=d.total/total; const rad=pct*2*Math.PI; const x1o=cx+raio*Math.sin(angulo),y1o=cy-raio*Math.cos(angulo); const x1i=cx+furo*Math.sin(angulo),y1i=cy-furo*Math.cos(angulo); angulo+=rad; const x2o=cx+raio*Math.sin(angulo),y2o=cy-raio*Math.cos(angulo); const x2i=cx+furo*Math.sin(angulo),y2i=cy-furo*Math.cos(angulo); const large=rad>Math.PI?1:0; const path=`M${x1i.toFixed(1)},${y1i.toFixed(1)} L${x1o.toFixed(1)},${y1o.toFixed(1)} A${raio},${raio} 0 ${large},1 ${x2o.toFixed(1)},${y2o.toFixed(1)} L${x2i.toFixed(1)},${y2i.toFixed(1)} A${furo},${furo} 0 ${large},0 ${x1i.toFixed(1)},${y1i.toFixed(1)} Z`; return {...d,path,pct}; });
+            return (<>
+              <svg width={180} height={180} viewBox="0 0 180 180">
+                {fatias.map((f,i)=><path key={i} d={f.path} fill={f.cor||"#6366f1"} stroke="transparent" strokeWidth={2}><title>{f.nome}: {fmt(f.total)} ({(f.pct*100).toFixed(1)}%)</title></path>)}
+              </svg>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {fatias.map((f,i)=>(
+                  <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"5px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <div style={{ width:8, height:8, borderRadius:2, background:f.cor||"#6366f1" }} />
+                      <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>{f.nome}</span>
+                    </div>
+                    <div style={{ textAlign:"right" }}>
+                      <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.9)" }}>{fmt(f.total)}</div>
+                      <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>{(f.pct*100).toFixed(1)}%</div>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0 0", borderTop:"1px solid rgba(255,255,255,0.1)" }}>
+                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>Total</span>
+                  <span style={{ fontSize:13, fontWeight:700, color:"#818cf8" }}>{fmt(total)}</span>
+                </div>
+              </div>
+            </>);
+          })()}
+        </div>
+      </div>
     </div>
   );
 }
@@ -965,8 +1018,8 @@ function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTel
 // ── Lançamentos ERP ────────────────────────────────────────────────────────────
 function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, projetos, empresaId, userId, onRefresh, membro }) {
   const [filtro, setFiltro] = useState("todos");
-  const [dataInicio, setDataInicio] = useState(new Date().toISOString().slice(0,7)+"-01");
-  const [dataFim, setDataFim] = useState(new Date().toISOString().split("T")[0]);
+  const [dataInicio, setDataInicio] = useState(primeiroDiaMes());
+  const [dataFim, setDataFim] = useState(hoje());
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [nf, setNf] = useState(null);
@@ -1073,7 +1126,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
         <input type="date" value={dataInicio} onChange={e=>setDataInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>até</span>
         <input type="date" value={dataFim} onChange={e=>setDataFim(e.target.value)} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setDataInicio(new Date().toISOString().slice(0,7)+"-01");setDataFim(hoje);}} style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"6px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{setDataInicio(primeiroDiaMes());setDataFim(hoje());}} style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"6px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
       </div>
 
       {/* Lista por dia */}
@@ -1225,8 +1278,8 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
 function DRE({ lancamentos, categorias }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-  const [inicio, setInicio] = useState(primeiroDia);
-  const [fim, setFim] = useState(hoje);
+  const [inicio, setInicio] = useState(primeiroDia());
+  const [fim, setFim] = useState(hoje());
 
   const base = useMemo(()=>lancamentos.filter(l=>{
     if(!l.impacta_dre) return false;
@@ -1267,7 +1320,7 @@ function DRE({ lancamentos, categorias }) {
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
         <div style={{ marginLeft:"auto", fontSize:11, color:"rgba(249,115,22,0.8)", background:"rgba(249,115,22,0.08)", borderRadius:6, padding:"4px 10px" }}>
           ⚠ Repasses de terceiros excluídos desta visão
         </div>
@@ -1348,8 +1401,8 @@ function DRE({ lancamentos, categorias }) {
 function FluxoCaixa({ lancamentos, categorias }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-  const [inicio, setInicio] = useState(primeiroDia);
-  const [fim, setFim] = useState(hoje);
+  const [inicio, setInicio] = useState(primeiroDia());
+  const [fim, setFim] = useState(hoje());
 
   const base = useMemo(()=>lancamentos.filter(l=>{
     if(l.impacta_caixa===false) return false;
@@ -1378,7 +1431,7 @@ function FluxoCaixa({ lancamentos, categorias }) {
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
         <div style={{ display:"flex", gap:16, marginLeft:"auto" }}>
           <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>ENTRADAS</div><div style={{ fontSize:15, fontWeight:700, color:"#818cf8" }}>{fmt(totalEnt)}</div></div>
           <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>SAÍDAS</div><div style={{ fontSize:15, fontWeight:700, color:"#f87171" }}>{fmt(totalSai)}</div></div>
@@ -1419,8 +1472,8 @@ function FluxoCaixa({ lancamentos, categorias }) {
 function PorCliente({ lancamentos, clientes, projetos }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-  const [inicio, setInicio] = useState(primeiroDia);
-  const [fim, setFim] = useState(hoje);
+  const [inicio, setInicio] = useState(primeiroDia());
+  const [fim, setFim] = useState(hoje());
 
   const base = useMemo(()=>lancamentos.filter(l=>{
     if(inicio && l.data_competencia < inicio) return false;
@@ -1448,7 +1501,7 @@ function PorCliente({ lancamentos, clientes, projetos }) {
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
       </div>
 
       {dados.length===0 && <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>Nenhum cliente com lançamentos no período</div>}
@@ -1479,8 +1532,8 @@ function PorCliente({ lancamentos, clientes, projetos }) {
 function PorProjeto({ lancamentos, projetos, clientes }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-  const [inicio, setInicio] = useState(primeiroDia);
-  const [fim, setFim] = useState(hoje);
+  const [inicio, setInicio] = useState(primeiroDia());
+  const [fim, setFim] = useState(hoje());
 
   const base = useMemo(()=>lancamentos.filter(l=>{
     if(inicio && l.data_competencia < inicio) return false;
@@ -1510,7 +1563,7 @@ function PorProjeto({ lancamentos, projetos, clientes }) {
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
       </div>
 
       {dados.length===0 && <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>Nenhum projeto com lançamentos no período</div>}
@@ -1713,7 +1766,23 @@ function Projetos({ projetos, clientes, empresaId, onRefresh, membro }) {
 }
 
 // ── Categorias ERP ─────────────────────────────────────────────────────────────
-function Categorias({ categorias, empresaId, onRefresh, membro }) {
+function Categorias({ categorias, subcategorias: subcatsProps, empresaId, onRefresh, membro }) {
+  const [modalSub, setModalSub] = useState(null);
+  const [subcats, setSubcats] = useState(subcatsProps||[]);
+  const [expandido, setExpandido] = useState({});
+  const [formSub, setFormSub] = useState({ nome:"", cor:"#6366f1" });
+
+  const carregarSubs = useCallback(async () => {
+    try { setSubcats((await sb(`subcategorias?empresa_id=eq.${empresaId}&order=nome.asc`))||[]); } catch {}
+  }, [empresaId]);
+  useEffect(() => { carregarSubs(); }, [carregarSubs]);
+
+  const salvarSub = async () => {
+    if(!formSub.nome) return;
+    try { await sb("subcategorias",{method:"POST",body:JSON.stringify({...formSub,empresa_id:empresaId,categoria_id:modalSub.id})}); setModalSub(null);setFormSub({nome:"",cor:"#6366f1"});carregarSubs(); }
+    catch(e){alert("Erro: "+e.message);}
+  };
+  const excluirSub = async(id) => { if(!confirm("Excluir subcategoria?"))return; await sb(`subcategorias?id=eq.${id}`,{method:"DELETE",prefer:""}); carregarSubs(); };
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ nome:"", grupo:"receita_operacional", cor:"#6366f1" });
@@ -1747,16 +1816,37 @@ function Categorias({ categorias, empresaId, onRefresh, membro }) {
             {info.label}
             {!info.impactaDRE && <span style={{ fontSize:9, background:"rgba(249,115,22,0.15)", color:"#f97316", padding:"1px 6px", borderRadius:3 }}>fora da DRE</span>}
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:8 }}>
-            {(porGrupo[grupo]||[]).map(cat=>(
-              <div key={cat.id} style={{ background:"#1a1a2e", borderLeft:`3px solid ${cat.cor||info.cor}`, border:"1px solid rgba(255,255,255,0.07)", borderRadius:"0 8px 8px 0", padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                <span style={{ fontSize:12, color:"rgba(255,255,255,0.75)" }}>{cat.nome}</span>
-                {podeCriar && <button onClick={()=>excluir(cat.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.15)", cursor:"pointer", fontSize:13 }}>✕</button>}
-              </div>
-            ))}
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {(porGrupo[grupo]||[]).map(cat=>{
+              const subs = subcats.filter(s=>s.categoria_id===cat.id);
+              const aberto = expandido[cat.id];
+              return (
+                <div key={cat.id}>
+                  <div style={{ background:"#1a1a2e", borderLeft:`3px solid ${cat.cor||info.cor}`, border:"1px solid rgba(255,255,255,0.07)", borderRadius:aberto&&subs.length>0?"8px 8px 0 0":"0 8px 8px 0", padding:"8px 12px", display:"flex", alignItems:"center", gap:8 }}>
+                    <span style={{ fontSize:12, color:"rgba(255,255,255,0.75)", flex:1 }}>{cat.nome}</span>
+                    <span style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>{subs.length} sub</span>
+                    {podeCriar && <button onClick={()=>setModalSub(cat)} style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:5, padding:"2px 7px", color:"#818cf8", fontSize:10, cursor:"pointer" }}>+ Sub</button>}
+                    {subs.length>0 && <button onClick={()=>setExpandido(p=>({...p,[cat.id]:!p[cat.id]}))} style={{ background:"rgba(255,255,255,0.04)", border:"none", borderRadius:5, padding:"2px 7px", color:"rgba(255,255,255,0.4)", fontSize:10, cursor:"pointer" }}>{aberto?"▲":"▼"}</button>}
+                    {podeCriar && <button onClick={()=>excluir(cat.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.15)", cursor:"pointer", fontSize:13 }}>✕</button>}
+                  </div>
+                  {aberto && subs.map((sub,i)=>(
+                    <div key={sub.id} style={{ background:"#13131f", borderLeft:`3px solid ${sub.cor||cat.cor||info.cor}`, border:"1px solid rgba(255,255,255,0.05)", borderTop:"none", borderRadius:i===subs.length-1?"0 0 8px 8px":"0", padding:"7px 12px 7px 22px", display:"flex", alignItems:"center", gap:8 }}>
+                      <div style={{ width:5, height:5, borderRadius:"50%", background:sub.cor||"#6366f1" }} />
+                      <span style={{ flex:1, fontSize:11, color:"rgba(255,255,255,0.6)" }}>{sub.nome}</span>
+                      {podeCriar && <button onClick={()=>excluirSub(sub.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.15)", cursor:"pointer", fontSize:12 }}>✕</button>}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </div>
       ))}
+      {modalSub && <Modal titulo={`Nova subcategoria em "${modalSub?.nome}"`} onClose={()=>setModalSub(null)}>
+        <Campo label="Nome"><input style={inputStyle} value={formSub.nome} onChange={e=>setFormSub({...formSub,nome:e.target.value})} placeholder="Ex: Pró-labore" /></Campo>
+        <Campo label="Cor"><div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>{["#6366f1","#f97316","#8b5cf6","#eab308","#06b6d4","#10b981","#ec4899","#ef4444","#a78bfa","#f59e0b"].map(cor=><div key={cor} onClick={()=>setFormSub({...formSub,cor})} style={{ width:28, height:28, borderRadius:"50%", background:cor, cursor:"pointer", border:formSub.cor===cor?"3px solid #fff":"2px solid transparent" }} />)}</div></Campo>
+        <BtnRow onCancel={()=>setModalSub(null)} onSave={salvarSub} loading={false} />
+      </Modal>}
       {modal && <Modal titulo="Nova categoria" onClose={()=>setModal(false)}>
         <Campo label="Nome"><input style={inputStyle} value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Fee de Agência" /></Campo>
         <Campo label="Grupo financeiro">
@@ -1788,7 +1878,7 @@ export default function App() {
   const [empresa, setEmpresa] = useState(null);
   const [membro, setMembro] = useState(null);
   const [tela, setTela] = useState("dashboard");
-  const [dados, setDados] = useState({ lancamentos:[], contas:[], categorias:[], clientes:[], fornecedores:[], projetos:[], contasPagar:[] });
+  const [dados, setDados] = useState({ lancamentos:[], contas:[], categorias:[], subcategorias:[], clientes:[], fornecedores:[], projetos:[], contasPagar:[] });
   const [carregando, setCarregando] = useState(false);
   const [verificando, setVerificando] = useState(true);
 
@@ -1832,16 +1922,17 @@ export default function App() {
     setCarregando(true);
     try {
       const eid = empresa.id;
-      const [lancamentos, contas, categorias, clientes, fornecedores, projetos, contasPagar] = await Promise.all([
+      const [lancamentos, contas, categorias, subcategorias, clientes, fornecedores, projetos, contasPagar] = await Promise.all([
         sb(`lancamentos?empresa_id=eq.${eid}&order=data_competencia.desc`),
         sb(`contas?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`categorias?empresa_id=eq.${eid}&order=ordem.asc,nome.asc`),
+        sb(`subcategorias?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`clientes?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`fornecedores?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`projetos?empresa_id=eq.${eid}&order=created_at.desc`),
         sb(`contas_pagar?empresa_id=eq.${eid}&order=vencimento.asc`),
       ]);
-      setDados({ lancamentos, contas, categorias, clientes, fornecedores, projetos, contasPagar });
+      setDados({ lancamentos, contas, categorias, subcategorias, clientes, fornecedores, projetos, contasPagar });
     } catch(e) { console.error(e); }
     setCarregando(false);
   }, [empresa]);
@@ -1879,7 +1970,7 @@ export default function App() {
               
               
               {tela==="relatorios"    && <Relatorios {...props} />}
-              {tela==="categorias"   && <Categorias categorias={dados.categorias} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
+              {tela==="categorias"   && <Categorias categorias={dados.categorias} subcategorias={dados.subcategorias} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
               {tela==="usuarios"      && <Usuarios empresa={empresa} userId={user.id} />}
             </>
           )}
