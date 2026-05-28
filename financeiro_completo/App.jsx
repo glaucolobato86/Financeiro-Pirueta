@@ -169,19 +169,25 @@ function BtnRow({ onCancel, onSave, loading }) {
 
 // ── Menu lateral ───────────────────────────────────────────────────────────────
 const MENU = [
-  { id:"dashboard", label:"Dashboard", icon:"🏠", single:true },
-  { id:"financeiro", label:"Financeiro", icon:"💰", single:false,
-    items:[
-      { id:"lancamentos",  label:"Lançamentos",    icon:"📋" },
-      { id:"contas_pagar", label:"Contas a Pagar", icon:"📅" },
-    ]
-  },
-  { id:"contas",        label:"Contas Bancárias",  icon:"💳", single:true },
-  { id:"investimentos", label:"Investimentos",     icon:"📈", single:true },
-  { id:"orcamento",     label:"Orçamento",         icon:"🎯", single:true },
-  { id:"relatorios",    label:"Relatórios / DRE",  icon:"📊", single:true },
-  { id:"categorias",    label:"Categorias",        icon:"🏷️", single:true },
-  { id:"usuarios",      label:"Usuários",          icon:"👥", single:true, apenasAdmin:true },
+  { id:"dashboard",    label:"Dashboard",     icon:"📊", single:true },
+  { id:"financeiro",   label:"Financeiro",    icon:"💰", single:false, items:[
+    { id:"lancamentos",  label:"Lançamentos",    icon:"📋" },
+    { id:"contas_pagar", label:"Contas a Pagar", icon:"📅" },
+  ]},
+  { id:"relatorios",   label:"Relatórios",    icon:"📈", single:false, items:[
+    { id:"dre",          label:"DRE",             icon:"📑" },
+    { id:"fluxo_caixa",  label:"Fluxo de Caixa",  icon:"💸" },
+    { id:"por_cliente",  label:"Por Cliente",      icon:"👤" },
+    { id:"por_projeto",  label:"Por Projeto",      icon:"📁" },
+  ]},
+  { id:"cadastros",    label:"Cadastros",     icon:"🗂️", single:false, items:[
+    { id:"clientes",     label:"Clientes",         icon:"👤" },
+    { id:"fornecedores", label:"Fornecedores",      icon:"🏭" },
+    { id:"projetos",     label:"Projetos",          icon:"📁" },
+    { id:"categorias",   label:"Categorias",        icon:"🏷️" },
+  ]},
+  { id:"contas",       label:"Contas",        icon:"💳", single:true },
+  { id:"usuarios",     label:"Usuários",      icon:"👥", single:true, apenasAdmin:true },
 ];
 
 function Sidebar({ tela, setTela, user, empresa, membro, onLogout }) {
@@ -281,138 +287,17 @@ function PreviewModal({ preview, onClose }) {
   );
 }
 
-// ── Gráfico Pizza ─────────────────────────────────────────────────────────────
-function GraficoPizza({ dados, total }) {
-  if (!dados.length || total === 0) return (
-    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:200, color:"rgba(255,255,255,0.2)", fontSize:13 }}>
-      Sem dados no período
-    </div>
-  );
-  let angulo = 0;
-  const cx = 110, cy = 110, raio = 90, furo = 48;
-  const fatias = dados.map(d => {
-    const pct = d.total / total;
-    const rad = pct * 2 * Math.PI;
-    const x1o = cx + raio * Math.sin(angulo), y1o = cy - raio * Math.cos(angulo);
-    const x1i = cx + furo * Math.sin(angulo), y1i = cy - furo * Math.cos(angulo);
-    angulo += rad;
-    const x2o = cx + raio * Math.sin(angulo), y2o = cy - raio * Math.cos(angulo);
-    const x2i = cx + furo * Math.sin(angulo), y2i = cy - furo * Math.cos(angulo);
-    const large = rad > Math.PI ? 1 : 0;
-    const path = `M${x1i.toFixed(1)},${y1i.toFixed(1)} L${x1o.toFixed(1)},${y1o.toFixed(1)} A${raio},${raio} 0 ${large},1 ${x2o.toFixed(1)},${y2o.toFixed(1)} L${x2i.toFixed(1)},${y2i.toFixed(1)} A${furo},${furo} 0 ${large},0 ${x1i.toFixed(1)},${y1i.toFixed(1)} Z`;
-    return { ...d, path, pct };
-  });
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:20, flexWrap:"wrap" }}>
-      <svg width={220} height={220} viewBox="0 0 220 220" style={{ flexShrink:0 }}>
-        {fatias.map((f,i) => (
-          <path key={i} d={f.path} fill={f.cor||"#6366f1"} stroke="transparent" strokeWidth={2}>
-            <title>{f.nome}: {fmt(f.total)} ({(f.pct*100).toFixed(1)}%)</title>
-          </path>
-        ))}
-      </svg>
-      <div style={{ display:"flex", flexDirection:"column", gap:8, flex:1, minWidth:140 }}>
-        {fatias.map((f,i) => (
-          <div key={i} style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <div style={{ width:10, height:10, borderRadius:3, background:f.cor||"#6366f1", flexShrink:0 }} />
-            <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)", flex:1 }}>{f.nome}</span>
-            <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)", fontWeight:500 }}>{(f.pct*100).toFixed(1)}%</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Dashboard ──────────────────────────────────────────────────────────────────
-function Dashboard({ lancamentos, contas, investimentos, categorias, subcategorias }) {
-  const hoje = new Date().toISOString().split("T")[0];
-  const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-
-  // Filtros globais do dashboard
-  const [inicio, setInicio] = useState(primeiroDia);
-  const [fim, setFim] = useState(hoje);
-  const [catFiltro, setCatFiltro] = useState("");
-
-  // Paleta de cores distintas
-  const PALETA = ["#6366f1","#f97316","#8b5cf6","#eab308","#06b6d4","#10b981","#ec4899","#ef4444","#a78bfa","#f59e0b","#84cc16","#14b8a6"];
-
-  // Lançamentos filtrados (base para tudo)
-  const filtrados = useMemo(() => lancamentos.filter(l => {
-    if (inicio && l.data < inicio) return false;
-    if (fim && l.data > fim) return false;
-    if (catFiltro && l.categoria_id !== catFiltro) return false;
-    return true;
-  }), [lancamentos, inicio, fim, catFiltro]);
-
-  const rec  = filtrados.filter(l=>l.tipo==="receita").reduce((s,l)=>s+Number(l.valor),0);
-  const desp = filtrados.filter(l=>l.tipo==="despesa").reduce((s,l)=>s+Number(l.valor),0);
+) {
+  const rec = lancamentos.filter(l=>l.tipo==="receita").reduce((s,l)=>s+Number(l.valor),0);
+  const desp = lancamentos.filter(l=>l.tipo==="despesa").reduce((s,l)=>s+Number(l.valor),0);
   const saldo = contas.reduce((s,c)=>s+Number(c.saldo),0);
   const invest = investimentos.reduce((s,i)=>s+Number(i.valor_atual),0);
-
-  const porCat = useMemo(() => categorias.filter(c=>c.tipo==="despesa").map((cat,i)=>({
-    ...cat,
-    cor: cat.cor || PALETA[i % PALETA.length],
-    total: filtrados.filter(l=>l.categoria_id===cat.id&&l.tipo==="despesa").reduce((s,l)=>s+Number(l.valor),0)
-  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total).slice(0,6), [filtrados, categorias]);
-
-  const ultimos = useMemo(() => [...filtrados].sort((a,b)=>new Date(b.data)-new Date(a.data)).slice(0,7), [filtrados]);
-
-  // Gráfico pizza — separado por tipo
-  const [pTipo, setPTipo] = useState("despesa");
-
-  const dadosPizza = useMemo(() => {
-    const base = filtrados.filter(l=>l.tipo===pTipo);
-    if (catFiltro) {
-      // Detalha subcategorias da categoria filtrada
-      const subs = (subcategorias||[]).filter(s=>s.categoria_id===catFiltro);
-      const semSub = base.filter(l=>!l.subcategoria_id).reduce((s,l)=>s+Number(l.valor),0);
-      const resultado = subs.map((s,i)=>({
-        ...s,
-        cor: PALETA[(i+2) % PALETA.length],
-        total: base.filter(l=>l.subcategoria_id===s.id).reduce((x,l)=>x+Number(l.valor),0)
-      })).filter(x=>x.total>0);
-      if (semSub>0) resultado.push({ id:"sem", nome:"Sem subcategoria", cor:"#aeaeb2", total:semSub });
-      return resultado.sort((a,b)=>b.total-a.total);
-    }
-    return categorias.filter(c=>c.tipo===pTipo).map((cat,i)=>({
-      ...cat,
-      cor: cat.cor || PALETA[i % PALETA.length],
-      total: base.filter(l=>l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0)
-    })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
-  }, [filtrados, categorias, subcategorias, catFiltro, pTipo]);
-
-  const totalPizza = dadosPizza.reduce((s,d)=>s+d.total,0);
-
+  const porCat = categorias.filter(c=>c.tipo==="despesa").map(cat=>({ ...cat, total:lancamentos.filter(l=>l.categoria_id===cat.id&&l.tipo==="despesa").reduce((s,l)=>s+Number(l.valor),0) })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total).slice(0,6);
+  const ultimos = [...lancamentos].sort((a,b)=>new Date(b.data)-new Date(a.data)).slice(0,7);
   return (
     <div>
       <div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Dashboard</div>
-      <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", marginBottom:14 }}>Visão geral da empresa</div>
-
-      {/* Filtros globais */}
-      <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap", alignItems:"center", background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"10px 16px" }}>
-        <span style={{ fontSize:12, color:"rgba(255,255,255,0.4)", fontWeight:500 }}>Filtrar:</span>
-        <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)}
-          style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>até</span>
-        <input type="date" value={fim} onChange={e=>setFim(e.target.value)}
-          style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}}
-          style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês atual</button>
-        <button onClick={()=>{setInicio("");setFim("");setCatFiltro("");}}
-          style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Tudo</button>
-        <select value={catFiltro} onChange={e=>setCatFiltro(e.target.value)}
-          style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }}>
-          <option value="">Todas categorias</option>
-          {categorias.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
-        </select>
-        {(inicio || fim || catFiltro) && (
-          <span style={{ fontSize:11, color:"#818cf8", background:"rgba(99,102,241,0.12)", borderRadius:5, padding:"3px 8px" }}>
-            {filtrados.length} lançamentos
-          </span>
-        )}
-      </div>
-
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", marginBottom:22 }}>Visão geral da empresa</div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         {[["Saldo em contas",saldo,"#fff"],["Receitas",rec,"#34d399"],["Despesas",desp,"#f87171"],["Investimentos",invest,"#a78bfa"]].map(([label,value,cor])=>(
           <div key={label} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px" }}>
@@ -421,10 +306,10 @@ function Dashboard({ lancamentos, contas, investimentos, categorias, subcategori
           </div>
         ))}
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
         <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
           <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:14 }}>Despesas por categoria</div>
-          {porCat.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhum lançamento no período.</div>}
+          {porCat.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhum lançamento ainda.</div>}
           {porCat.map(cat=>(
             <div key={cat.id} style={{ marginBottom:12 }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
@@ -439,7 +324,7 @@ function Dashboard({ lancamentos, contas, investimentos, categorias, subcategori
         </div>
         <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
           <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:14 }}>Últimos lançamentos</div>
-          {ultimos.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhum lançamento no período.</div>}
+          {ultimos.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhum lançamento ainda.</div>}
           {ultimos.map(l=>{
             const cat=categorias.find(c=>c.id===l.categoria_id);
             return (
@@ -457,239 +342,6 @@ function Dashboard({ lancamentos, contas, investimentos, categorias, subcategori
           })}
         </div>
       </div>
-
-      {/* Gráfico Pizza */}
-      <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
-        <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:16 }}>Análise por gráfico</div>
-
-        {/* Tipo do gráfico */}
-        <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:3, marginBottom:20, width:"fit-content" }}>
-          {[["despesa","Despesas"],["receita","Receitas"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setPTipo(v)}
-              style={{ padding:"5px 12px", borderRadius:6, border:"none", background:pTipo===v?"rgba(99,102,241,0.25)":"transparent", color:pTipo===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:12, cursor:"pointer", fontWeight:pTipo===v?500:400 }}>{l}</button>
-          ))}
-        </div>
-
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, alignItems:"center" }}>
-          <GraficoPizza dados={dadosPizza} total={totalPizza} />
-          <div>
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:12 }}>Detalhamento</div>
-            {dadosPizza.length === 0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.2)" }}>Sem dados no período selecionado</div>}
-            {dadosPizza.map(d=>(
-              <div key={d.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ width:8, height:8, borderRadius:2, background:d.cor||"#6366f1", flexShrink:0 }} />
-                  <span style={{ fontSize:13, color:"rgba(255,255,255,0.7)" }}>{d.nome}</span>
-                </div>
-                <div style={{ textAlign:"right" }}>
-                  <div style={{ fontSize:13, fontWeight:500, color:pTipo==="despesa"?"#f87171":"#34d399" }}>{fmt(d.total)}</div>
-                  <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>{totalPizza?((d.total/totalPizza)*100).toFixed(1):0}%</div>
-                </div>
-              </div>
-            ))}
-            {dadosPizza.length > 0 && (
-              <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0 0", marginTop:4, borderTop:"1px solid rgba(255,255,255,0.08)" }}>
-                <span style={{ fontSize:13, color:"rgba(255,255,255,0.5)", fontWeight:500 }}>Total</span>
-                <span style={{ fontSize:14, fontWeight:600, color:pTipo==="despesa"?"#f87171":"#34d399" }}>{fmt(totalPizza)}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Lançamentos ────────────────────────────────────────────────────────────────
-function Lancamentos({ lancamentos, contas, categorias, subcategorias, empresaId, userId, onRefresh, membro }) {
-  const [filtro, setFiltro] = useState("todos");
-  const [modal, setModal] = useState(false);
-  const [preview, setPreview] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [nf, setNf] = useState(null);
-  const [comp, setComp] = useState(null);
-  const [diasAbertos, setDiasAbertos] = useState({});
-  const hoje = new Date().toISOString().split("T")[0];
-  const primeiroDiaMes = new Date().toISOString().slice(0,7)+"-01";
-  const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
-  const [dataFim, setDataFim] = useState(hoje);
-  const [form, setForm] = useState({ descricao:"", valor:"", tipo:"despesa", data:hoje, categoria_id:"", subcategoria_id:"", conta_id:"", observacao:"" });
-  const podeExcluir = membro?.perfil !== "visualizador";
-  const podeCriar = membro?.perfil !== "visualizador";
-
-  const lista = useMemo(()=>lancamentos.filter(l=>(filtro==="todos"||l.tipo===filtro)&&(!dataInicio||l.data>=dataInicio)&&(!dataFim||l.data<=dataFim)).sort((a,b)=>new Date(b.data)-new Date(a.data)),[lancamentos,filtro,dataInicio,dataFim]);
-  const porDia = useMemo(()=>{ const d={}; lista.forEach(l=>{ if(!d[l.data])d[l.data]=[]; d[l.data].push(l); }); return Object.entries(d).sort((a,b)=>new Date(b[0])-new Date(a[0])); },[lista]);
-  const totalGeral = useMemo(()=>({ receita:lista.filter(l=>l.tipo==="receita").reduce((s,l)=>s+Number(l.valor),0), despesa:lista.filter(l=>l.tipo==="despesa").reduce((s,l)=>s+Number(l.valor),0) }),[lista]);
-  const toggleDia = (data)=>setDiasAbertos(prev=>({...prev,[data]:!prev[data]}));
-  const meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-  const dias=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
-  const fmtData=(data)=>{ const [y,m,d]=data.split("-"); return { dia:d, mes:meses[Number(m)-1], semana:dias[new Date(Number(y),Number(m)-1,Number(d)).getDay()] }; };
-
-  const salvar = async () => {
-    if (!form.descricao||!form.valor||!form.data) return alert("Preencha descrição, valor e data.");
-    setLoading(true);
-    try {
-      let nf_url=null,nf_nome=null,comprovante_url=null,comprovante_nome=null;
-      if(nf){const r=await uploadArquivo(nf,userId);nf_url=r.url;nf_nome=r.nome;}
-      if(comp){const r=await uploadArquivo(comp,userId);comprovante_url=r.url;comprovante_nome=r.nome;}
-      await sb("lancamentos",{method:"POST",body:JSON.stringify({...form,valor:Number(form.valor),empresa_id:empresaId,criado_por:userId,categoria_id:form.categoria_id||null,subcategoria_id:form.subcategoria_id||null,conta_id:form.conta_id||null,nf_url,nf_nome,comprovante_url,comprovante_nome})});
-      setModal(false);setNf(null);setComp(null);
-      setForm({descricao:"",valor:"",tipo:"despesa",data:hoje,categoria_id:"",subcategoria_id:"",conta_id:"",observacao:""});
-      onRefresh();
-    } catch(e){alert("Erro: "+e.message);}
-    setLoading(false);
-  };
-
-  const excluir = async (id) => {
-    if(!confirm("Excluir este lançamento?"))return;
-    await sb(`lancamentos?id=eq.${id}`,{method:"DELETE",prefer:""});onRefresh();
-  };
-
-  const BtnAnexo=({url,nome,label})=>url?(<button onClick={()=>verAnexo(url,nome,setPreview)} style={{ background:"rgba(52,211,153,0.12)", border:"1px solid rgba(52,211,153,0.3)", color:"#34d399", cursor:"pointer", fontSize:10, padding:"2px 8px", borderRadius:4, whiteSpace:"nowrap" }}>{label}</button>):null;
-
-  const subsDisponiveis = (subcategorias||[]).filter(s=>s.categoria_id===form.categoria_id);
-
-  return (
-    <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
-        <div>
-          <div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Lançamentos</div>
-          <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>{lista.length} registros</div>
-        </div>
-        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:8, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Novo lançamento</button>}
-      </div>
-
-      <div style={{ display:"flex", alignItems:"center", gap:12, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 16px", marginBottom:14, flexWrap:"wrap" }}>
-        {[["De",dataInicio,setDataInicio],["Até",dataFim,setDataFim]].map(([label,val,set])=>(
-          <div key={label} style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>{label}</span>
-            <input type="date" value={val} onChange={e=>set(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-          </div>
-        ))}
-        <button onClick={()=>{setDataInicio(primeiroDiaMes);setDataFim(hoje);}} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:6, padding:"6px 12px", color:"#818cf8", fontSize:12, cursor:"pointer" }}>Mês atual</button>
-        <button onClick={()=>{setDataInicio("");setDataFim("");}} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"6px 12px", color:"rgba(255,255,255,0.5)", fontSize:12, cursor:"pointer" }}>Tudo</button>
-      </div>
-
-      <div style={{ display:"flex", gap:7, marginBottom:16 }}>
-        {["todos","receita","despesa"].map(f=>(
-          <button key={f} onClick={()=>setFiltro(f)} style={{ padding:"5px 13px", borderRadius:6, border:`1px solid ${filtro===f?"#6366f1":"rgba(255,255,255,0.1)"}`, background:filtro===f?"rgba(99,102,241,0.15)":"transparent", color:filtro===f?"#818cf8":"rgba(255,255,255,0.4)", fontSize:12, cursor:"pointer", textTransform:"capitalize" }}>{f}</button>
-        ))}
-      </div>
-
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:18 }}>
-        {[["Total de receitas",totalGeral.receita,"#34d399"],["Total de despesas",totalGeral.despesa,"#f87171"],["Resultado",totalGeral.receita-totalGeral.despesa,totalGeral.receita-totalGeral.despesa>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
-          <div key={l} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 16px" }}>
-            <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:5 }}>{l}</div>
-            <div style={{ fontSize:17, fontWeight:600, color:c }}>{fmt(v)}</div>
-          </div>
-        ))}
-      </div>
-
-      {porDia.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)", padding:20 }}>Nenhum lançamento encontrado.</div>}
-      {porDia.map(([data,itens])=>{
-        const rec=itens.filter(l=>l.tipo==="receita").reduce((s,l)=>s+Number(l.valor),0);
-        const desp=itens.filter(l=>l.tipo==="despesa").reduce((s,l)=>s+Number(l.valor),0);
-        const aberto=diasAbertos[data];
-        const {dia,mes,semana}=fmtData(data);
-        return (
-          <div key={data} style={{ marginBottom:8 }}>
-            <div onClick={()=>toggleDia(data)} style={{ display:"flex", alignItems:"center", gap:14, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:aberto?"10px 10px 0 0":10, padding:"12px 16px", cursor:"pointer", userSelect:"none" }}>
-              <div style={{ textAlign:"center", minWidth:44, background:"rgba(99,102,241,0.15)", borderRadius:8, padding:"6px 8px" }}>
-                <div style={{ fontSize:18, fontWeight:600, color:"#818cf8", lineHeight:1 }}>{dia}</div>
-                <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", textTransform:"uppercase" }}>{mes}</div>
-              </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, color:"#fff", fontWeight:500 }}>{semana}</div>
-                <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)" }}>{itens.length} lançamento{itens.length!==1?"s":""}</div>
-              </div>
-              <div style={{ display:"flex", gap:20, alignItems:"center" }}>
-                {rec>0 && <div style={{ textAlign:"right" }}>
-                  <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", textTransform:"uppercase" }}>Entrada</div>
-                  <div style={{ fontSize:14, fontWeight:600, color:"#34d399" }}>{fmt(rec)}</div>
-                </div>}
-                {desp>0 && <div style={{ textAlign:"right" }}>
-                  <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", textTransform:"uppercase" }}>Saída</div>
-                  <div style={{ fontSize:14, fontWeight:600, color:"#f87171" }}>{fmt(desp)}</div>
-                </div>}
-                <div style={{ fontSize:16, color:"rgba(255,255,255,0.3)" }}>{aberto?"▲":"▼"}</div>
-              </div>
-            </div>
-            {aberto && (
-              <div style={{ background:"#13131f", border:"1px solid rgba(255,255,255,0.07)", borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
-                {itens.map((l,i)=>{
-                  const cat=categorias.find(c=>c.id===l.categoria_id);
-                  const sub=(subcategorias||[]).find(s=>s.id===l.subcategoria_id);
-                  const conta=contas.find(c=>c.id===l.conta_id);
-                  return (
-                    <div key={l.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 16px", borderBottom:i<itens.length-1?"1px solid rgba(255,255,255,0.04)":"none" }}>
-                      <div style={{ width:8, height:8, borderRadius:"50%", background:cat?.cor||"#6366f1", flexShrink:0 }} />
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.descricao}</div>
-                        <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", display:"flex", gap:6, marginTop:2, flexWrap:"wrap" }}>
-                          {cat && <span>{cat.nome}</span>}
-                          {sub && <span style={{ color:"rgba(255,255,255,0.5)" }}>› {sub.nome}</span>}
-                          {conta && <span>· {conta.nome}</span>}
-                        </div>
-                      </div>
-                      <div style={{ display:"flex", gap:6, alignItems:"center", flexShrink:0 }}>
-                        {l.nf_url && <BtnAnexo url={l.nf_url} nome={l.nf_nome||"NF"} label="📄 NF" />}
-                        {l.comprovante_url && <BtnAnexo url={l.comprovante_url} nome={l.comprovante_nome||"Comprovante"} label="🧾 Comp." />}
-                        <div style={{ fontSize:13, fontWeight:600, color:l.tipo==="receita"?"#34d399":"#f87171", minWidth:90, textAlign:"right" }}>
-                          {l.tipo==="receita"?"+":"-"}{fmt(Math.abs(Number(l.valor)))}
-                        </div>
-                        {podeExcluir && <button onClick={()=>excluir(l.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      <PreviewModal preview={preview} onClose={()=>setPreview(null)} />
-
-      {modal && (
-        <Modal titulo="Novo lançamento" onClose={()=>setModal(false)}>
-          <Campo label="Descrição"><input style={inputStyle} value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} placeholder="Ex: Supermercado" /></Campo>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            <Campo label="Valor (R$)"><input style={inputStyle} type="number" step="0.01" value={form.valor} onChange={e=>setForm({...form,valor:e.target.value})} /></Campo>
-            <Campo label="Data"><input style={inputStyle} type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})} /></Campo>
-          </div>
-          <Campo label="Tipo">
-            <div style={{ display:"flex", gap:8 }}>
-              {["despesa","receita"].map(t=>(<button key={t} onClick={()=>setForm({...form,tipo:t,categoria_id:"",subcategoria_id:""})} style={{ flex:1, padding:"9px", borderRadius:7, border:`1px solid ${form.tipo===t?"#6366f1":"rgba(255,255,255,0.1)"}`, background:form.tipo===t?"rgba(99,102,241,0.15)":"transparent", color:form.tipo===t?"#818cf8":"rgba(255,255,255,0.4)", fontSize:13, cursor:"pointer", textTransform:"capitalize" }}>{t}</button>))}
-            </div>
-          </Campo>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            <Campo label="Categoria">
-              <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value,subcategoria_id:""})}>
-                <option value="">Sem categoria</option>
-                {categorias.filter(c=>c.tipo===form.tipo).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </Campo>
-            <Campo label="Conta">
-              <select style={selectStyle} value={form.conta_id} onChange={e=>setForm({...form,conta_id:e.target.value})}>
-                <option value="">Sem conta</option>
-                {contas.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </Campo>
-          </div>
-          {form.categoria_id && subsDisponiveis.length>0 && (
-            <Campo label="Subcategoria">
-              <select style={selectStyle} value={form.subcategoria_id} onChange={e=>setForm({...form,subcategoria_id:e.target.value})}>
-                <option value="">Sem subcategoria</option>
-                {subsDisponiveis.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
-              </select>
-            </Campo>
-          )}
-          <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"vertical", minHeight:50 }} value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} /></Campo>
-          <Campo label="📄 Nota Fiscal"><input type="file" accept="image/*,.pdf" onChange={e=>setNf(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{nf&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {nf.name}</div>}</Campo>
-          <Campo label="🧾 Comprovante de Pagamento"><input type="file" accept="image/*,.pdf" onChange={e=>setComp(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{comp&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {comp.name}</div>}</Campo>
-          <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
-        </Modal>
-      )}
     </div>
   );
 }
@@ -1039,8 +691,7 @@ function Orcamento({ orcamento, lancamentos, categorias, empresaId, onRefresh, m
   );
 }
 
-// ── Categorias ─────────────────────────────────────────────────────────────────
-function Categorias({ categorias, empresaId, onRefresh, membro }) {
+) {
   const [modal, setModal] = useState(false);
   const [modalSub, setModalSub] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -1298,6 +949,955 @@ function Usuarios({ empresa, userId }) {
   );
 }
 
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const GRUPOS = {
+  receita_operacional:  { label:"Receita Operacional",  cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
+  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"entrada" },
+  despesa_operacional:  { label:"Despesa Operacional",  cor:"#10b981", impactaDRE:true,  tipo:"saida" },
+  imposto:              { label:"Imposto",              cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
+  taxa_bancaria:        { label:"Taxa Bancária",        cor:"#94a3b8", impactaDRE:false, tipo:"saida" },
+  transferencia_interna:{ label:"Transferência Interna",cor:"#cbd5e1", impactaDRE:false, tipo:"saida" },
+};
+
+const fmtPct = (v) => `${Number(v).toFixed(1)}%`;
+
+// ── Dashboard ERP ──────────────────────────────────────────────────────────────
+function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTela }) {
+  const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
+
+  const filtrados = useMemo(()=>lancamentos.filter(l=>{
+    if(inicio && l.data_competencia < inicio) return false;
+    if(fim && l.data_competencia > fim) return false;
+    return true;
+  }),[lancamentos,inicio,fim]);
+
+  // KPIs principais
+  const recOp   = filtrados.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0);
+  const repasse  = filtrados.filter(l=>l.tipo_lancamento==="repasse_terceiros").reduce((s,l)=>s+Number(l.valor),0);
+  const despOp   = filtrados.filter(l=>["despesa_operacional","imposto"].includes(l.tipo_lancamento)).reduce((s,l)=>s+Number(l.valor),0);
+  const impostos = filtrados.filter(l=>l.tipo_lancamento==="imposto").reduce((s,l)=>s+Number(l.valor),0);
+  const totalEntradas = filtrados.filter(l=>l.tipo==="entrada").reduce((s,l)=>s+Number(l.valor),0);
+  const totalSaidas   = filtrados.filter(l=>l.tipo==="saida").reduce((s,l)=>s+Number(l.valor),0);
+  const lucroOp = recOp - despOp;
+  const margem  = recOp > 0 ? (lucroOp/recOp)*100 : 0;
+  const saldoCaixa = contas.reduce((s,c)=>s+Number(c.saldo),0);
+
+  // Top clientes
+  const topClientes = clientes.map(cl=>({
+    ...cl,
+    receita: filtrados.filter(l=>l.cliente_id===cl.id&&l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0),
+    repasse: filtrados.filter(l=>l.cliente_id===cl.id&&l.tipo_lancamento==="repasse_terceiros").reduce((s,l)=>s+Number(l.valor),0),
+  })).filter(cl=>cl.receita>0||cl.repasse>0).sort((a,b)=>(b.receita+b.repasse)-(a.receita+a.repasse)).slice(0,5);
+
+  // Por categoria (DRE)
+  const porCatRec = categorias.filter(c=>c.grupo==="receita_operacional").map(cat=>({
+    ...cat, total: filtrados.filter(l=>l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0)
+  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+
+  const card = (label,valor,cor,sub=null,click=null) => (
+    <div onClick={click} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px", cursor:click?"pointer":"default" }}>
+      <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8, fontWeight:600 }}>{label}</div>
+      <div style={{ fontSize:22, fontWeight:700, color:cor }}>{fmt(valor)}</div>
+      {sub && <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginTop:4 }}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:4 }}>Dashboard Executivo</div>
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:14 }}>Visão gerencial da agência</div>
+
+      {/* Filtro de período */}
+      <div style={{ display:"flex", gap:10, marginBottom:20, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"10px 16px", alignItems:"center", flexWrap:"wrap" }}>
+        <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)", fontWeight:600, textTransform:"uppercase" }}>Período</span>
+        <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>até</span>
+        <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês atual</button>
+        <button onClick={()=>{ const a=new Date(); setInicio(new Date(a.getFullYear(),0,1).toISOString().split("T")[0]); setFim(hoje); }} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Ano</button>
+        <button onClick={()=>{setInicio("");setFim("");}} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Tudo</button>
+      </div>
+
+      {/* Cards principais */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:12 }}>
+        {card("Receita Operacional", recOp, "#818cf8", `Margem: ${fmtPct(margem)}`)}
+        {card("Lucro Operacional", lucroOp, lucroOp>=0?"#34d399":"#f87171", `Despesas: ${fmt(despOp)}`)}
+        {card("Repasse Terceiros", repasse, "#f97316", "Não entra na DRE")}
+        {card("Saldo em Caixa", saldoCaixa, "#fff")}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
+        {card("Volume Movimentado", totalEntradas, "rgba(255,255,255,0.6)", "Total de entradas no período")}
+        {card("Total Saídas", totalSaidas, "#f87171")}
+        {card("Impostos", impostos, "#fca5a5")}
+        {card("Margem Operacional", margem, margem>=20?"#34d399":margem>=10?"#fbbf24":"#f87171", null)}
+      </div>
+
+      {/* Tabelas */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+        {/* Top clientes */}
+        <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.6)", marginBottom:14 }}>Receita por cliente</div>
+          {topClientes.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhum lançamento com cliente.</div>}
+          {topClientes.map(cl=>(
+            <div key={cl.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+              <div>
+                <div style={{ fontSize:13, color:"#fff", fontWeight:500 }}>{cl.nome}</div>
+                {cl.repasse>0 && <div style={{ fontSize:10, color:"#f97316" }}>+ {fmt(cl.repasse)} em repasses</div>}
+              </div>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:13, fontWeight:600, color:"#818cf8" }}>{fmt(cl.receita)}</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>operacional</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Receitas por categoria */}
+        <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.6)", marginBottom:14 }}>Receita por serviço</div>
+          {porCatRec.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhuma receita no período.</div>}
+          {porCatRec.map(cat=>(
+            <div key={cat.id} style={{ marginBottom:12 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                  <div style={{ width:7, height:7, borderRadius:2, background:cat.cor||"#6366f1" }} />
+                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>{cat.nome}</span>
+                </div>
+                <span style={{ fontSize:12, color:"#818cf8", fontWeight:500 }}>{fmt(cat.total)}</span>
+              </div>
+              <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
+                <div style={{ width:`${recOp?(cat.total/recOp*100):0}%`, height:"100%", borderRadius:999, background:cat.cor||"#6366f1" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Lançamentos ERP ────────────────────────────────────────────────────────────
+function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, projetos, empresaId, userId, onRefresh, membro }) {
+  const [filtro, setFiltro] = useState("todos");
+  const [dataInicio, setDataInicio] = useState(new Date().toISOString().slice(0,7)+"-01");
+  const [dataFim, setDataFim] = useState(new Date().toISOString().split("T")[0]);
+  const [modal, setModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [nf, setNf] = useState(null);
+  const [comp, setComp] = useState(null);
+  const [diasAbertos, setDiasAbertos] = useState({});
+  const podeCriar = membro?.perfil !== "visualizador";
+  const podeExcluir = membro?.perfil !== "visualizador";
+
+  const hoje = new Date().toISOString().split("T")[0];
+
+  const [form, setForm] = useState({
+    descricao:"", valor:"", tipo:"entrada",
+    tipo_lancamento:"receita_operacional",
+    data_competencia:hoje, data_pagamento:"",
+    impacta_dre:true, impacta_caixa:true,
+    categoria_id:"", conta_id:"", cliente_id:"",
+    fornecedor_id:"", projeto_id:"",
+    valor_repasse:"0", observacao:""
+  });
+
+  // Quando tipo_lancamento muda, atualiza tipo e impacta_dre automaticamente
+  const setTipoLanc = (tl) => {
+    const g = GRUPOS[tl];
+    setForm(f=>({...f, tipo_lancamento:tl, tipo:g.tipo, impacta_dre:g.impactaDRE, categoria_id:""}));
+  };
+
+  const catsFiltradas = useMemo(()=>categorias.filter(c=>c.grupo===form.tipo_lancamento),[categorias,form.tipo_lancamento]);
+
+  const lista = useMemo(()=>lancamentos.filter(l=>{
+    if(filtro!=="todos" && l.tipo_lancamento!==filtro) return false;
+    if(dataInicio && l.data_competencia < dataInicio) return false;
+    if(dataFim && l.data_competencia > dataFim) return false;
+    return true;
+  }).sort((a,b)=>new Date(b.data_competencia)-new Date(a.data_competencia)),[lancamentos,filtro,dataInicio,dataFim]);
+
+  const porDia = useMemo(()=>{
+    const d={};
+    lista.forEach(l=>{ const dt=l.data_competencia||hoje; if(!d[dt])d[dt]=[]; d[dt].push(l); });
+    return Object.entries(d).sort((a,b)=>new Date(b[0])-new Date(a[0]));
+  },[lista]);
+
+  const totais = useMemo(()=>({
+    recOp:  lista.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0),
+    repasse:lista.filter(l=>l.tipo_lancamento==="repasse_terceiros").reduce((s,l)=>s+Number(l.valor),0),
+    desp:   lista.filter(l=>["despesa_operacional","imposto"].includes(l.tipo_lancamento)).reduce((s,l)=>s+Number(l.valor),0),
+  }),[lista]);
+
+  const salvar = async () => {
+    if(!form.descricao||!form.valor) return alert("Preencha descrição e valor.");
+    setLoading(true);
+    try {
+      let nf_url=null,nf_nome=null,comprovante_url=null,comprovante_nome=null;
+      if(nf){const r=await uploadArquivo(nf,userId);nf_url=r.url;nf_nome=r.nome;}
+      if(comp){const r=await uploadArquivo(comp,userId);comprovante_url=r.url;comprovante_nome=r.nome;}
+      await sb("lancamentos",{method:"POST",body:JSON.stringify({
+        ...form, valor:Number(form.valor), valor_repasse:Number(form.valor_repasse)||0,
+        empresa_id:empresaId, criado_por:userId,
+        categoria_id:form.categoria_id||null, conta_id:form.conta_id||null,
+        cliente_id:form.cliente_id||null, fornecedor_id:form.fornecedor_id||null,
+        projeto_id:form.projeto_id||null, data_pagamento:form.data_pagamento||null,
+        nf_url,nf_nome,comprovante_url,comprovante_nome
+      })});
+      setModal(false); setNf(null); setComp(null);
+      setForm({descricao:"",valor:"",tipo:"entrada",tipo_lancamento:"receita_operacional",data_competencia:hoje,data_pagamento:"",impacta_dre:true,impacta_caixa:true,categoria_id:"",conta_id:"",cliente_id:"",fornecedor_id:"",projeto_id:"",valor_repasse:"0",observacao:""});
+      onRefresh();
+    } catch(e){alert("Erro: "+e.message);}
+    setLoading(false);
+  };
+
+  const excluir = async (id) => { if(!confirm("Excluir?"))return; await sb(`lancamentos?id=eq.${id}`,{method:"DELETE",prefer:""}); onRefresh(); };
+
+  const CORES_GRUPO = { receita_operacional:"#818cf8", repasse_terceiros:"#f97316", despesa_operacional:"#34d399", imposto:"#f87171", taxa_bancaria:"#94a3b8", transferencia_interna:"#cbd5e1" };
+  const meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  const dias=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  const fmtDt=(data)=>{ if(!data)return""; const[y,m,d]=data.split("-"); return `${dias[new Date(Number(y),Number(m)-1,Number(d)).getDay()]}, ${d} ${meses[Number(m)-1]}`; };
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
+        <div>
+          <div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:2 }}>Lançamentos</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>{lista.length} registros</div>
+        </div>
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 18px", color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer" }}>+ Novo lançamento</button>}
+      </div>
+
+      {/* KPIs compactos */}
+      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+        {[["Receita Operacional",totais.recOp,"#818cf8"],["Repasse Terceiros",totais.repasse,"#f97316"],["Despesas",totais.desp,"#f87171"],["Lucro",totais.recOp-totais.desp,(totais.recOp-totais.desp)>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
+          <div key={l} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"8px 14px" }}>
+            <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>{l}</div>
+            <div style={{ fontSize:14, fontWeight:700, color:c }}>{fmt(v)}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ display:"flex", gap:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:3 }}>
+          {[["todos","Todos"],["receita_operacional","Receita Op."],["repasse_terceiros","Repasse"],["despesa_operacional","Despesa"],["imposto","Imposto"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setFiltro(v)} style={{ padding:"5px 11px", borderRadius:8, border:"none", background:filtro===v?"rgba(99,102,241,0.25)":"transparent", color:filtro===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:11, cursor:"pointer", fontWeight:filtro===v?600:400, whiteSpace:"nowrap" }}>{l}</button>
+          ))}
+        </div>
+        <input type="date" value={dataInicio} onChange={e=>setDataInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>até</span>
+        <input type="date" value={dataFim} onChange={e=>setDataFim(e.target.value)} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <button onClick={()=>{setDataInicio(new Date().toISOString().slice(0,7)+"-01");setDataFim(hoje);}} style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"6px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+      </div>
+
+      {/* Lista por dia */}
+      {porDia.length===0 && <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}><div style={{ fontSize:28, marginBottom:8 }}>◎</div><div>Nenhum lançamento no período</div></div>}
+      {porDia.map(([data,itens])=>{
+        const entradas=itens.filter(l=>l.tipo==="entrada").reduce((s,l)=>s+Number(l.valor),0);
+        const saidas=itens.filter(l=>l.tipo==="saida").reduce((s,l)=>s+Number(l.valor),0);
+        const aberto=diasAbertos[data];
+        return (
+          <div key={data} style={{ marginBottom:8 }}>
+            <button onClick={()=>setDiasAbertos(p=>({...p,[data]:!p[data]}))} style={{ width:"100%", display:"flex", alignItems:"center", gap:14, background:aberto?"#1a1a2e":"rgba(255,255,255,0.02)", border:"1px solid rgba(255,255,255,0.06)", borderRadius:aberto?"12px 12px 0 0":12, padding:"11px 16px", cursor:"pointer" }}>
+              <div style={{ fontSize:13, fontWeight:600, color:"#fff", flex:1, textAlign:"left" }}>{fmtDt(data)}</div>
+              <div style={{ display:"flex", gap:14, alignItems:"center" }}>
+                {entradas>0&&<span style={{ fontSize:12, color:"#818cf8", fontWeight:500 }}>+{fmt(entradas)}</span>}
+                {saidas>0&&<span style={{ fontSize:12, color:"#f87171", fontWeight:500 }}>-{fmt(saidas)}</span>}
+                <span style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{itens.length} item{itens.length!==1?"s":""}</span>
+                <span style={{ fontSize:10, color:"rgba(255,255,255,0.2)" }}>{aberto?"▲":"▼"}</span>
+              </div>
+            </button>
+            {aberto && (
+              <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.06)", borderTop:"none", borderRadius:"0 0 12px 12px", overflow:"hidden" }}>
+                {itens.map((l,i)=>{
+                  const cat=categorias.find(c=>c.id===l.categoria_id);
+                  const cli=clientes.find(c=>c.id===l.cliente_id);
+                  const proj=projetos.find(p=>p.id===l.projeto_id);
+                  const corGrupo=CORES_GRUPO[l.tipo_lancamento]||"#6366f1";
+                  return (
+                    <div key={l.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px", borderBottom:i<itens.length-1?"1px solid rgba(255,255,255,0.04)":"none" }}
+                      onMouseEnter={e=>{if(podeExcluir)e.currentTarget.querySelector(".del")?.style&&(e.currentTarget.querySelector(".del").style.opacity="1");}}
+                      onMouseLeave={e=>{if(podeExcluir)e.currentTarget.querySelector(".del")?.style&&(e.currentTarget.querySelector(".del").style.opacity="0");}}>
+                      {/* Badge tipo */}
+                      <div style={{ background:corGrupo+"22", border:`1px solid ${corGrupo}44`, borderRadius:6, padding:"2px 8px", fontSize:10, color:corGrupo, fontWeight:600, whiteSpace:"nowrap", flexShrink:0 }}>
+                        {GRUPOS[l.tipo_lancamento]?.label||l.tipo_lancamento}
+                      </div>
+                      {/* Info */}
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, color:"#fff", fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.descricao}</div>
+                        <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", display:"flex", gap:8, marginTop:2, flexWrap:"wrap" }}>
+                          {cat&&<span>{cat.nome}</span>}
+                          {cli&&<span>· {cli.nome}</span>}
+                          {proj&&<span>· {proj.nome}</span>}
+                          {!l.impacta_dre&&<span style={{ color:"#f97316" }}>· fora da DRE</span>}
+                        </div>
+                      </div>
+                      {/* Valor */}
+                      <div style={{ fontSize:14, fontWeight:700, color:l.tipo==="entrada"?"#818cf8":"#f87171", minWidth:90, textAlign:"right" }}>
+                        {l.tipo==="entrada"?"+":"-"}{fmt(l.valor)}
+                      </div>
+                      {podeExcluir&&<button className="del" onClick={()=>excluir(l.id)} style={{ background:"rgba(239,68,68,0.12)", border:"none", borderRadius:6, color:"#f87171", cursor:"pointer", fontSize:12, padding:"3px 7px", opacity:0, transition:"opacity 0.15s" }}>✕</button>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Modal */}
+      {modal && (
+        <Modal titulo="Novo lançamento" onClose={()=>setModal(false)}>
+          {/* Tipo de lançamento */}
+          <Campo label="Tipo de lançamento">
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+              {Object.entries(GRUPOS).map(([k,g])=>(
+                <button key={k} onClick={()=>setTipoLanc(k)} style={{ padding:"7px 6px", borderRadius:8, border:`1px solid ${form.tipo_lancamento===k?g.cor:"rgba(255,255,255,0.08)"}`, background:form.tipo_lancamento===k?g.cor+"22":"transparent", color:form.tipo_lancamento===k?g.cor:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer", fontWeight:form.tipo_lancamento===k?600:400, textAlign:"center", lineHeight:1.3 }}>
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            {!form.impacta_dre && <div style={{ marginTop:6, fontSize:11, color:"#f97316", background:"rgba(249,115,22,0.1)", borderRadius:6, padding:"4px 10px" }}>⚠ Este tipo não impacta a DRE</div>}
+          </Campo>
+
+          <Campo label="Descrição"><input style={inputStyle} value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} placeholder="Ex: Fee de gestão - SENAC Maio" /></Campo>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Valor total (R$)"><input style={inputStyle} type="number" step="0.01" value={form.valor} onChange={e=>setForm({...form,valor:e.target.value})} /></Campo>
+            <Campo label="Data competência"><input style={inputStyle} type="date" value={form.data_competencia} onChange={e=>setForm({...form,data_competencia:e.target.value})} /></Campo>
+          </div>
+
+          {form.tipo_lancamento==="repasse_terceiros" && (
+            <div style={{ background:"rgba(249,115,22,0.08)", border:"1px solid rgba(249,115,22,0.2)", borderRadius:8, padding:"10px 14px", marginBottom:14 }}>
+              <div style={{ fontSize:11, color:"#f97316", fontWeight:600, marginBottom:6 }}>REPASSE / PASS-THROUGH</div>
+              <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>Este valor pertence a terceiros e não entra na sua DRE como receita.</div>
+            </div>
+          )}
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Categoria">
+              <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value})}>
+                <option value="">Selecione...</option>
+                {catsFiltradas.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Conta bancária">
+              <select style={selectStyle} value={form.conta_id} onChange={e=>setForm({...form,conta_id:e.target.value})}>
+                <option value="">Sem conta</option>
+                {contas.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Cliente">
+              <select style={selectStyle} value={form.cliente_id} onChange={e=>setForm({...form,cliente_id:e.target.value})}>
+                <option value="">Sem cliente</option>
+                {clientes.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Projeto / Campanha">
+              <select style={selectStyle} value={form.projeto_id} onChange={e=>setForm({...form,projeto_id:e.target.value})}>
+                <option value="">Sem projeto</option>
+                {projetos.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+
+          {["repasse_terceiros","despesa_operacional"].includes(form.tipo_lancamento) && (
+            <Campo label="Fornecedor">
+              <select style={selectStyle} value={form.fornecedor_id} onChange={e=>setForm({...form,fornecedor_id:e.target.value})}>
+                <option value="">Sem fornecedor</option>
+                {fornecedores.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+              </select>
+            </Campo>
+          )}
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Data pagamento (opcional)"><input style={inputStyle} type="date" value={form.data_pagamento} onChange={e=>setForm({...form,data_pagamento:e.target.value})} /></Campo>
+            <Campo label="Impacta DRE?">
+              <button onClick={()=>setForm({...form,impacta_dre:!form.impacta_dre})} style={{ width:"100%", padding:"10px", borderRadius:8, border:`1px solid ${form.impacta_dre?"#6366f1":"#f97316"}`, background:form.impacta_dre?"rgba(99,102,241,0.12)":"rgba(249,115,22,0.12)", color:form.impacta_dre?"#818cf8":"#f97316", cursor:"pointer", fontSize:13, fontWeight:500 }}>
+                {form.impacta_dre?"✓ Sim, impacta DRE":"✕ Não impacta DRE"}
+              </button>
+            </Campo>
+          </div>
+
+          <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"none", height:55 }} value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} /></Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="📄 Nota Fiscal"><input type="file" accept="image/*,.pdf" onChange={e=>setNf(e.target.files[0])} style={{ ...inputStyle, padding:"7px 10px", fontSize:12 }} />{nf&&<div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {nf.name.slice(0,20)}</div>}</Campo>
+            <Campo label="🧾 Comprovante"><input type="file" accept="image/*,.pdf" onChange={e=>setComp(e.target.files[0])} style={{ ...inputStyle, padding:"7px 10px", fontSize:12 }} />{comp&&<div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {comp.name.slice(0,20)}</div>}</Campo>
+          </div>
+          <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── DRE ────────────────────────────────────────────────────────────────────────
+function DRE({ lancamentos, categorias }) {
+  const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
+
+  const base = useMemo(()=>lancamentos.filter(l=>{
+    if(!l.impacta_dre) return false;
+    if(inicio && l.data_competencia < inicio) return false;
+    if(fim && l.data_competencia > fim) return false;
+    return true;
+  }),[lancamentos,inicio,fim]);
+
+  const recOp = base.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0);
+  const despOp = base.filter(l=>l.tipo_lancamento==="despesa_operacional").reduce((s,l)=>s+Number(l.valor),0);
+  const impostos = base.filter(l=>l.tipo_lancamento==="imposto").reduce((s,l)=>s+Number(l.valor),0);
+  const ebitda = recOp - despOp;
+  const lucroLiq = ebitda - impostos;
+  const margem = recOp>0 ? (lucroLiq/recOp)*100 : 0;
+
+  const porCatRec = categorias.filter(c=>c.grupo==="receita_operacional").map(cat=>({
+    ...cat, total: base.filter(l=>l.categoria_id===cat.id&&l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0)
+  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+
+  const porCatDesp = categorias.filter(c=>c.grupo==="despesa_operacional").map(cat=>({
+    ...cat, total: base.filter(l=>l.categoria_id===cat.id&&l.tipo_lancamento==="despesa_operacional").reduce((s,l)=>s+Number(l.valor),0)
+  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+
+  const linha = (label,valor,cor,bold=false,indent=false)=>(
+    <div style={{ display:"flex", justifyContent:"space-between", padding:`${bold?"12px":"8px"} 0`, borderBottom:"1px solid rgba(255,255,255,0.04)", paddingLeft:indent?16:0 }}>
+      <span style={{ fontSize:bold?14:13, color:bold?"#fff":"rgba(255,255,255,0.6)", fontWeight:bold?600:400 }}>{label}</span>
+      <span style={{ fontSize:bold?15:13, color:cor, fontWeight:bold?700:500 }}>{fmt(valor)}</span>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:4 }}>DRE — Demonstrativo de Resultado</div>
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:18 }}>Apenas lançamentos que impactam o resultado da agência</div>
+
+      {/* Filtro */}
+      <div style={{ display:"flex", gap:10, marginBottom:20, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"10px 16px", alignItems:"center", flexWrap:"wrap" }}>
+        <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
+        <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <div style={{ marginLeft:"auto", fontSize:11, color:"rgba(249,115,22,0.8)", background:"rgba(249,115,22,0.08)", borderRadius:6, padding:"4px 10px" }}>
+          ⚠ Repasses de terceiros excluídos desta visão
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
+        {[["Receita Operacional",recOp,"#818cf8"],["(-) Despesas Op.",despOp,"#f87171"],["EBITDA",ebitda,ebitda>=0?"#34d399":"#f87171"],["Lucro Líquido",lucroLiq,lucroLiq>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
+          <div key={l} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"14px 16px" }}>
+            <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8, fontWeight:600 }}>{l}</div>
+            <div style={{ fontSize:20, fontWeight:700, color:c }}>{fmt(v)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+        {/* DRE estruturada */}
+        <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:16 }}>Demonstrativo</div>
+          {linha("( + ) Receita Operacional Bruta", recOp, "#818cf8", true)}
+          {porCatRec.map(cat=>linha(`    ${cat.nome}`, cat.total, "#818cf8", false, true))}
+          {linha("( − ) Despesas Operacionais", despOp, "#f87171", true)}
+          {porCatDesp.map(cat=>linha(`    ${cat.nome}`, cat.total, "#f87171", false, true))}
+          <div style={{ borderTop:"2px solid rgba(255,255,255,0.12)", marginTop:8, paddingTop:12 }}>
+            {linha("( = ) EBITDA", ebitda, ebitda>=0?"#34d399":"#f87171", true)}
+            {linha("( − ) Impostos", impostos, "#fca5a5")}
+          </div>
+          <div style={{ borderTop:"2px solid rgba(255,255,255,0.2)", marginTop:8, paddingTop:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0" }}>
+              <span style={{ fontSize:16, color:"#fff", fontWeight:700 }}>( = ) Lucro Líquido</span>
+              <div style={{ textAlign:"right" }}>
+                <div style={{ fontSize:24, fontWeight:700, color:lucroLiq>=0?"#34d399":"#f87171" }}>{fmt(lucroLiq)}</div>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", marginTop:2 }}>Margem: {fmtPct(margem)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Detalhamento */}
+        <div>
+          <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18, marginBottom:12 }}>
+            <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.5)", marginBottom:12, textTransform:"uppercase", letterSpacing:"0.07em" }}>Receitas por serviço</div>
+            {porCatRec.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.2)" }}>Sem receitas</div>}
+            {porCatRec.map(cat=>(
+              <div key={cat.id} style={{ marginBottom:10 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>{cat.nome}</span>
+                  <span style={{ fontSize:12, color:"#818cf8", fontWeight:500 }}>{fmt(cat.total)}</span>
+                </div>
+                <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
+                  <div style={{ width:`${recOp?(cat.total/recOp*100):0}%`, height:"100%", background:cat.cor||"#6366f1", borderRadius:999 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
+            <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.5)", marginBottom:12, textTransform:"uppercase", letterSpacing:"0.07em" }}>Despesas por categoria</div>
+            {porCatDesp.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.2)" }}>Sem despesas</div>}
+            {porCatDesp.map(cat=>(
+              <div key={cat.id} style={{ marginBottom:10 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>{cat.nome}</span>
+                  <span style={{ fontSize:12, color:"#f87171", fontWeight:500 }}>{fmt(cat.total)}</span>
+                </div>
+                <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
+                  <div style={{ width:`${despOp?(cat.total/despOp*100):0}%`, height:"100%", background:cat.cor||"#ef4444", borderRadius:999 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Fluxo de Caixa ─────────────────────────────────────────────────────────────
+function FluxoCaixa({ lancamentos, categorias }) {
+  const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
+
+  const base = useMemo(()=>lancamentos.filter(l=>{
+    if(l.impacta_caixa===false) return false;
+    if(inicio && l.data_competencia < inicio) return false;
+    if(fim && l.data_competencia > fim) return false;
+    return true;
+  }),[lancamentos,inicio,fim]);
+
+  const porDia = useMemo(()=>{
+    const d={};
+    base.forEach(l=>{ const dt=l.data_competencia; if(!d[dt])d[dt]={ent:0,sai:0,items:[]}; if(l.tipo==="entrada")d[dt].ent+=Number(l.valor); else d[dt].sai+=Number(l.valor); d[dt].items.push(l); });
+    return Object.entries(d).sort((a,b)=>a[0].localeCompare(b[0]));
+  },[base]);
+
+  const totalEnt = base.filter(l=>l.tipo==="entrada").reduce((s,l)=>s+Number(l.valor),0);
+  const totalSai = base.filter(l=>l.tipo==="saida").reduce((s,l)=>s+Number(l.valor),0);
+  const dias=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  const meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+
+  return (
+    <div>
+      <div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:4 }}>Fluxo de Caixa</div>
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:18 }}>Todo dinheiro que entrou e saiu — incluindo repasses de terceiros</div>
+
+      <div style={{ display:"flex", gap:10, marginBottom:20, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"10px 16px", alignItems:"center", flexWrap:"wrap" }}>
+        <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
+        <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <div style={{ display:"flex", gap:16, marginLeft:"auto" }}>
+          <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>ENTRADAS</div><div style={{ fontSize:15, fontWeight:700, color:"#818cf8" }}>{fmt(totalEnt)}</div></div>
+          <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>SAÍDAS</div><div style={{ fontSize:15, fontWeight:700, color:"#f87171" }}>{fmt(totalSai)}</div></div>
+          <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>SALDO</div><div style={{ fontSize:15, fontWeight:700, color:(totalEnt-totalSai)>=0?"#34d399":"#f87171" }}>{fmt(totalEnt-totalSai)}</div></div>
+        </div>
+      </div>
+
+      <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, overflow:"hidden" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead><tr style={{ borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
+            {["Data","Dia","Entradas","Saídas","Saldo do dia","Acumulado"].map(h=>(
+              <th key={h} style={{ padding:"10px 14px", textAlign:"left", fontSize:10, color:"rgba(255,255,255,0.35)", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.07em" }}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {porDia.length===0 && <tr><td colSpan={6} style={{ padding:24, textAlign:"center", color:"rgba(255,255,255,0.2)", fontSize:13 }}>Sem movimentações no período</td></tr>}
+            {(()=>{ let acum=0; return porDia.map(([data,v])=>{
+              const sd=v.ent-v.sai; acum+=sd;
+              const[y,m,d]=data.split("-");
+              const ds=dias[new Date(Number(y),Number(m)-1,Number(d)).getDay()];
+              return (<tr key={data} style={{ borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
+                <td style={{ padding:"9px 14px", fontSize:12, color:"rgba(255,255,255,0.6)" }}>{d}/{m}/{y}</td>
+                <td style={{ padding:"9px 14px", fontSize:12, color:"rgba(255,255,255,0.35)" }}>{ds}</td>
+                <td style={{ padding:"9px 14px", fontSize:12, color:"#818cf8", fontWeight:500 }}>{v.ent>0?fmt(v.ent):"—"}</td>
+                <td style={{ padding:"9px 14px", fontSize:12, color:"#f87171", fontWeight:500 }}>{v.sai>0?fmt(v.sai):"—"}</td>
+                <td style={{ padding:"9px 14px", fontSize:12, fontWeight:600, color:sd>=0?"#34d399":"#f87171" }}>{fmt(sd)}</td>
+                <td style={{ padding:"9px 14px", fontSize:12, fontWeight:600, color:acum>=0?"#818cf8":"#f87171" }}>{fmt(acum)}</td>
+              </tr>);
+            }); })()}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── Por Cliente ────────────────────────────────────────────────────────────────
+function PorCliente({ lancamentos, clientes, projetos }) {
+  const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
+
+  const base = useMemo(()=>lancamentos.filter(l=>{
+    if(inicio && l.data_competencia < inicio) return false;
+    if(fim && l.data_competencia > fim) return false;
+    return true;
+  }),[lancamentos,inicio,fim]);
+
+  const dados = useMemo(()=>clientes.map(cl=>{
+    const lCl = base.filter(l=>l.cliente_id===cl.id);
+    const recOp = lCl.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0);
+    const repasse = lCl.filter(l=>l.tipo_lancamento==="repasse_terceiros").reduce((s,l)=>s+Number(l.valor),0);
+    const volume = recOp + repasse;
+    const projsCl = projetos.filter(p=>p.cliente_id===cl.id);
+    return { ...cl, recOp, repasse, volume, projsCl };
+  }).filter(cl=>cl.volume>0).sort((a,b)=>b.recOp-a.recOp),[clientes,base,projetos]);
+
+  const totalRecOp = dados.reduce((s,cl)=>s+cl.recOp,0);
+
+  return (
+    <div>
+      <div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:4 }}>Resultado por Cliente</div>
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:18 }}>Receita operacional e volume financeiro por cliente</div>
+
+      <div style={{ display:"flex", gap:10, marginBottom:20, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"10px 16px", alignItems:"center" }}>
+        <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
+        <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+      </div>
+
+      {dados.length===0 && <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>Nenhum cliente com lançamentos no período</div>}
+      {dados.map(cl=>(
+        <div key={cl.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px", marginBottom:10 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+            <div>
+              <div style={{ fontSize:15, fontWeight:600, color:"#fff", marginBottom:4 }}>{cl.nome}</div>
+              <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>{cl.projsCl.length} projeto{cl.projsCl.length!==1?"s":""}</div>
+            </div>
+            <div style={{ display:"flex", gap:20, textAlign:"right" }}>
+              <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>REC. OPERACIONAL</div><div style={{ fontSize:16, fontWeight:700, color:"#818cf8" }}>{fmt(cl.recOp)}</div></div>
+              {cl.repasse>0&&<div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>REPASSE</div><div style={{ fontSize:16, fontWeight:700, color:"#f97316" }}>{fmt(cl.repasse)}</div></div>}
+              <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>VOLUME TOTAL</div><div style={{ fontSize:16, fontWeight:700, color:"rgba(255,255,255,0.6)" }}>{fmt(cl.volume)}</div></div>
+            </div>
+          </div>
+          <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
+            <div style={{ width:`${totalRecOp?(cl.recOp/totalRecOp*100):0}%`, height:"100%", background:"#6366f1", borderRadius:999 }} />
+          </div>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginTop:4 }}>{totalRecOp?((cl.recOp/totalRecOp)*100).toFixed(1):0}% da receita operacional total</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Por Projeto ────────────────────────────────────────────────────────────────
+function PorProjeto({ lancamentos, projetos, clientes }) {
+  const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
+
+  const base = useMemo(()=>lancamentos.filter(l=>{
+    if(inicio && l.data_competencia < inicio) return false;
+    if(fim && l.data_competencia > fim) return false;
+    return true;
+  }),[lancamentos,inicio,fim]);
+
+  const dados = useMemo(()=>projetos.map(p=>{
+    const lP = base.filter(l=>l.projeto_id===p.id);
+    const recOp = lP.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0);
+    const repasse = lP.filter(l=>l.tipo_lancamento==="repasse_terceiros").reduce((s,l)=>s+Number(l.valor),0);
+    const despesas = lP.filter(l=>["despesa_operacional","imposto"].includes(l.tipo_lancamento)).reduce((s,l)=>s+Number(l.valor),0);
+    const lucro = recOp - despesas;
+    const margem = recOp > 0 ? (lucro/recOp)*100 : 0;
+    const cliente = clientes.find(c=>c.id===p.cliente_id);
+    return { ...p, recOp, repasse, despesas, lucro, margem, cliente };
+  }).filter(p=>p.recOp>0||p.repasse>0).sort((a,b)=>b.recOp-a.recOp),[projetos,base,clientes]);
+
+  const STATUS_COR = { ativo:"#34d399", pausado:"#fbbf24", concluido:"#818cf8", cancelado:"#f87171" };
+
+  return (
+    <div>
+      <div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:4 }}>Resultado por Projeto</div>
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:18 }}>Rentabilidade e volume por campanha/projeto</div>
+
+      <div style={{ display:"flex", gap:10, marginBottom:20, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"10px 16px", alignItems:"center" }}>
+        <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
+        <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+      </div>
+
+      {dados.length===0 && <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>Nenhum projeto com lançamentos no período</div>}
+      {dados.map(p=>(
+        <div key={p.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px", marginBottom:10 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
+                <div style={{ fontSize:15, fontWeight:600, color:"#fff" }}>{p.nome}</div>
+                <span style={{ fontSize:10, background:STATUS_COR[p.status]+"22", color:STATUS_COR[p.status], padding:"2px 8px", borderRadius:4, fontWeight:600, textTransform:"capitalize" }}>{p.status}</span>
+              </div>
+              {p.cliente && <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>Cliente: {p.cliente.nome}</div>}
+            </div>
+            <div style={{ display:"flex", gap:16, textAlign:"right" }}>
+              <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>REC. OP.</div><div style={{ fontSize:15, fontWeight:700, color:"#818cf8" }}>{fmt(p.recOp)}</div></div>
+              {p.repasse>0&&<div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>REPASSE</div><div style={{ fontSize:15, fontWeight:700, color:"#f97316" }}>{fmt(p.repasse)}</div></div>}
+              <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>LUCRO</div><div style={{ fontSize:15, fontWeight:700, color:p.lucro>=0?"#34d399":"#f87171" }}>{fmt(p.lucro)}</div></div>
+              <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>MARGEM</div><div style={{ fontSize:15, fontWeight:700, color:p.margem>=20?"#34d399":p.margem>=10?"#fbbf24":"#f87171" }}>{fmtPct(p.margem)}</div></div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Clientes ───────────────────────────────────────────────────────────────────
+function Clientes({ clientes, empresaId, onRefresh, membro }) {
+  const [modal, setModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ nome:"", contato:"", email:"", telefone:"" });
+  const podeCriar = membro?.perfil !== "visualizador";
+
+  const salvar = async () => {
+    if(!form.nome) return;
+    setLoading(true);
+    try { await sb("clientes",{method:"POST",body:JSON.stringify({...form,empresa_id:empresaId,ativo:true})}); setModal(false);setForm({nome:"",contato:"",email:"",telefone:""});onRefresh(); }
+    catch(e){alert("Erro: "+e.message);}
+    setLoading(false);
+  };
+  const excluir = async(id)=>{ if(!confirm("Excluir?"))return; await sb(`clientes?id=eq.${id}`,{method:"DELETE",prefer:""});onRefresh(); };
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div><div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:2 }}>Clientes</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>{clientes.length} cadastrados</div></div>
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 18px", color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer" }}>+ Novo cliente</button>}
+      </div>
+      {clientes.length===0 && <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>Nenhum cliente cadastrado</div>}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:12 }}>
+        {clientes.map(cl=>(
+          <div key={cl.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+              <div style={{ fontSize:14, fontWeight:600, color:"#fff", marginBottom:6 }}>{cl.nome}</div>
+              {podeCriar && <button onClick={()=>excluir(cl.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>✕</button>}
+            </div>
+            {cl.contato && <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>👤 {cl.contato}</div>}
+            {cl.email && <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>✉ {cl.email}</div>}
+            {cl.telefone && <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>📞 {cl.telefone}</div>}
+          </div>
+        ))}
+      </div>
+      {modal && <Modal titulo="Novo cliente" onClose={()=>setModal(false)}>
+        <Campo label="Nome da empresa/cliente"><input style={inputStyle} value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: SENAC" /></Campo>
+        <Campo label="Contato"><input style={inputStyle} value={form.contato} onChange={e=>setForm({...form,contato:e.target.value})} /></Campo>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <Campo label="E-mail"><input style={inputStyle} type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} /></Campo>
+          <Campo label="Telefone"><input style={inputStyle} value={form.telefone} onChange={e=>setForm({...form,telefone:e.target.value})} /></Campo>
+        </div>
+        <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
+      </Modal>}
+    </div>
+  );
+}
+
+// ── Fornecedores ───────────────────────────────────────────────────────────────
+function Fornecedores({ fornecedores, empresaId, onRefresh, membro }) {
+  const [modal, setModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ nome:"", tipo:"outros", email:"", contato:"" });
+  const podeCriar = membro?.perfil !== "visualizador";
+  const TIPOS = { grafica:"Gráfica", produtora:"Produtora", midia:"Mídia", influenciador:"Influenciador", outros:"Outros" };
+  const CORES_TIPO = { grafica:"#f97316", produtora:"#8b5cf6", midia:"#06b6d4", influenciador:"#ec4899", outros:"#94a3b8" };
+
+  const salvar = async () => {
+    if(!form.nome) return;
+    setLoading(true);
+    try { await sb("fornecedores",{method:"POST",body:JSON.stringify({...form,empresa_id:empresaId,ativo:true})}); setModal(false);setForm({nome:"",tipo:"outros",email:"",contato:""});onRefresh(); }
+    catch(e){alert("Erro: "+e.message);}
+    setLoading(false);
+  };
+  const excluir=async(id)=>{ if(!confirm("Excluir?"))return; await sb(`fornecedores?id=eq.${id}`,{method:"DELETE",prefer:""});onRefresh(); };
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div><div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:2 }}>Fornecedores</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>{fornecedores.length} cadastrados</div></div>
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 18px", color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer" }}>+ Novo fornecedor</button>}
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:12 }}>
+        {fornecedores.map(f=>(
+          <div key={f.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+              <div>
+                <div style={{ fontSize:14, fontWeight:600, color:"#fff", marginBottom:6 }}>{f.nome}</div>
+                <span style={{ fontSize:11, background:(CORES_TIPO[f.tipo]||"#94a3b8")+"22", color:CORES_TIPO[f.tipo]||"#94a3b8", padding:"2px 8px", borderRadius:4 }}>{TIPOS[f.tipo]||f.tipo}</span>
+              </div>
+              {podeCriar && <button onClick={()=>excluir(f.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>✕</button>}
+            </div>
+            {f.contato && <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:8 }}>👤 {f.contato}</div>}
+            {f.email && <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>✉ {f.email}</div>}
+          </div>
+        ))}
+      </div>
+      {modal && <Modal titulo="Novo fornecedor" onClose={()=>setModal(false)}>
+        <Campo label="Nome"><input style={inputStyle} value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Gráfica Central" /></Campo>
+        <Campo label="Tipo">
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+            {Object.entries(TIPOS).map(([v,l])=>(
+              <button key={v} onClick={()=>setForm({...form,tipo:v})} style={{ padding:"7px", borderRadius:8, border:`1px solid ${form.tipo===v?(CORES_TIPO[v]||"#6366f1"):"rgba(255,255,255,0.08)"}`, background:form.tipo===v?(CORES_TIPO[v]||"#6366f1")+"22":"transparent", color:form.tipo===v?(CORES_TIPO[v]||"#6366f1"):"rgba(255,255,255,0.4)", fontSize:12, cursor:"pointer" }}>{l}</button>
+            ))}
+          </div>
+        </Campo>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <Campo label="Contato"><input style={inputStyle} value={form.contato} onChange={e=>setForm({...form,contato:e.target.value})} /></Campo>
+          <Campo label="E-mail"><input style={inputStyle} type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} /></Campo>
+        </div>
+        <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
+      </Modal>}
+    </div>
+  );
+}
+
+// ── Projetos ───────────────────────────────────────────────────────────────────
+function Projetos({ projetos, clientes, empresaId, onRefresh, membro }) {
+  const [modal, setModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ nome:"", cliente_id:"", descricao:"", status:"ativo", valor_contrato:"", data_inicio:"", data_fim:"" });
+  const podeCriar = membro?.perfil !== "visualizador";
+  const STATUS = { ativo:"Ativo", pausado:"Pausado", concluido:"Concluído", cancelado:"Cancelado" };
+  const STATUS_COR = { ativo:"#34d399", pausado:"#fbbf24", concluido:"#818cf8", cancelado:"#f87171" };
+
+  const salvar = async () => {
+    if(!form.nome) return;
+    setLoading(true);
+    try { await sb("projetos",{method:"POST",body:JSON.stringify({...form,valor_contrato:Number(form.valor_contrato)||0,empresa_id:empresaId,cliente_id:form.cliente_id||null,data_inicio:form.data_inicio||null,data_fim:form.data_fim||null})}); setModal(false);setForm({nome:"",cliente_id:"",descricao:"",status:"ativo",valor_contrato:"",data_inicio:"",data_fim:""});onRefresh(); }
+    catch(e){alert("Erro: "+e.message);}
+    setLoading(false);
+  };
+  const excluir=async(id)=>{ if(!confirm("Excluir?"))return; await sb(`projetos?id=eq.${id}`,{method:"DELETE",prefer:""});onRefresh(); };
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div><div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:2 }}>Projetos / Campanhas</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>{projetos.length} projetos</div></div>
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 18px", color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer" }}>+ Novo projeto</button>}
+      </div>
+      {projetos.length===0 && <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>Nenhum projeto cadastrado</div>}
+      {projetos.map(p=>{
+        const cliente=clientes.find(c=>c.id===p.cliente_id);
+        return (
+          <div key={p.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px", marginBottom:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
+                <div style={{ fontSize:14, fontWeight:600, color:"#fff" }}>{p.nome}</div>
+                <span style={{ fontSize:10, background:STATUS_COR[p.status]+"22", color:STATUS_COR[p.status], padding:"2px 8px", borderRadius:4, fontWeight:600 }}>{STATUS[p.status]}</span>
+              </div>
+              {cliente && <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>Cliente: {cliente.nome}</div>}
+              {p.descricao && <div style={{ fontSize:12, color:"rgba(255,255,255,0.3)", marginTop:2 }}>{p.descricao}</div>}
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+              {Number(p.valor_contrato)>0 && <div style={{ textAlign:"right" }}><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>CONTRATO</div><div style={{ fontSize:15, fontWeight:600, color:"#818cf8" }}>{fmt(p.valor_contrato)}</div></div>}
+              {podeCriar && <button onClick={()=>excluir(p.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>✕</button>}
+            </div>
+          </div>
+        );
+      })}
+      {modal && <Modal titulo="Novo projeto" onClose={()=>setModal(false)}>
+        <Campo label="Nome do projeto / campanha"><input style={inputStyle} value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Campanha Verão SENAC 2026" /></Campo>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <Campo label="Cliente"><select style={selectStyle} value={form.cliente_id} onChange={e=>setForm({...form,cliente_id:e.target.value})}><option value="">Sem cliente</option>{clientes.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></Campo>
+          <Campo label="Valor do contrato (R$)"><input style={inputStyle} type="number" step="0.01" value={form.valor_contrato} onChange={e=>setForm({...form,valor_contrato:e.target.value})} /></Campo>
+        </div>
+        <Campo label="Status">
+          <div style={{ display:"flex", gap:6 }}>
+            {Object.entries(STATUS).map(([v,l])=>(
+              <button key={v} onClick={()=>setForm({...form,status:v})} style={{ flex:1, padding:"7px", borderRadius:8, border:`1px solid ${form.status===v?(STATUS_COR[v]||"#6366f1"):"rgba(255,255,255,0.08)"}`, background:form.status===v?(STATUS_COR[v]||"#6366f1")+"22":"transparent", color:form.status===v?(STATUS_COR[v]||"#6366f1"):"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>{l}</button>
+            ))}
+          </div>
+        </Campo>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <Campo label="Início"><input style={inputStyle} type="date" value={form.data_inicio} onChange={e=>setForm({...form,data_inicio:e.target.value})} /></Campo>
+          <Campo label="Fim previsto"><input style={inputStyle} type="date" value={form.data_fim} onChange={e=>setForm({...form,data_fim:e.target.value})} /></Campo>
+        </div>
+        <Campo label="Descrição"><textarea style={{ ...inputStyle, resize:"none", height:55 }} value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} /></Campo>
+        <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
+      </Modal>}
+    </div>
+  );
+}
+
+// ── Categorias ERP ─────────────────────────────────────────────────────────────
+function Categorias({ categorias, empresaId, onRefresh, membro }) {
+  const [modal, setModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ nome:"", grupo:"receita_operacional", cor:"#6366f1" });
+  const podeCriar = membro?.perfil !== "visualizador";
+
+  const salvar = async () => {
+    if(!form.nome) return;
+    setLoading(true);
+    try { await sb("categorias",{method:"POST",body:JSON.stringify({...form,empresa_id:empresaId})}); setModal(false);setForm({nome:"",grupo:"receita_operacional",cor:"#6366f1"});onRefresh(); }
+    catch(e){alert("Erro: "+e.message);}
+    setLoading(false);
+  };
+  const excluir=async(id)=>{ if(!confirm("Excluir?"))return; await sb(`categorias?id=eq.${id}`,{method:"DELETE",prefer:""});onRefresh(); };
+
+  const porGrupo = useMemo(()=>{
+    const g={};
+    categorias.forEach(c=>{ if(!g[c.grupo])g[c.grupo]=[]; g[c.grupo].push(c); });
+    return g;
+  },[categorias]);
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+        <div><div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:2 }}>Categorias</div><div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>{categorias.length} categorias</div></div>
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:10, padding:"9px 18px", color:"#fff", fontSize:13, fontWeight:600, cursor:"pointer" }}>+ Nova categoria</button>}
+      </div>
+      {Object.entries(GRUPOS).map(([grupo,info])=>(
+        <div key={grupo} style={{ marginBottom:16 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:info.cor, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8, display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:8, height:8, borderRadius:2, background:info.cor }} />
+            {info.label}
+            {!info.impactaDRE && <span style={{ fontSize:9, background:"rgba(249,115,22,0.15)", color:"#f97316", padding:"1px 6px", borderRadius:3 }}>fora da DRE</span>}
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:8 }}>
+            {(porGrupo[grupo]||[]).map(cat=>(
+              <div key={cat.id} style={{ background:"#1a1a2e", borderLeft:`3px solid ${cat.cor||info.cor}`, border:"1px solid rgba(255,255,255,0.07)", borderRadius:"0 8px 8px 0", padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <span style={{ fontSize:12, color:"rgba(255,255,255,0.75)" }}>{cat.nome}</span>
+                {podeCriar && <button onClick={()=>excluir(cat.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.15)", cursor:"pointer", fontSize:13 }}>✕</button>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {modal && <Modal titulo="Nova categoria" onClose={()=>setModal(false)}>
+        <Campo label="Nome"><input style={inputStyle} value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Fee de Agência" /></Campo>
+        <Campo label="Grupo financeiro">
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+            {Object.entries(GRUPOS).map(([k,g])=>(
+              <button key={k} onClick={()=>setForm({...form,grupo:k})} style={{ padding:"8px", borderRadius:8, border:`1px solid ${form.grupo===k?g.cor:"rgba(255,255,255,0.08)"}`, background:form.grupo===k?g.cor+"22":"transparent", color:form.grupo===k?g.cor:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer", textAlign:"left" }}>
+                {g.label}
+                {!g.impactaDRE && <span style={{ display:"block", fontSize:9, opacity:0.7 }}>fora da DRE</span>}
+              </button>
+            ))}
+          </div>
+        </Campo>
+        <Campo label="Cor"><div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {["#6366f1","#f97316","#8b5cf6","#eab308","#06b6d4","#10b981","#ec4899","#ef4444","#a78bfa","#f59e0b"].map(cor=>(
+            <div key={cor} onClick={()=>setForm({...form,cor})} style={{ width:28, height:28, borderRadius:"50%", background:cor, cursor:"pointer", border:form.cor===cor?"3px solid #fff":"2px solid transparent" }} />
+          ))}
+        </div></Campo>
+        <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
+      </Modal>}
+    </div>
+  );
+}
+
 // ── App principal ──────────────────────────────────────────────────────────────
 export default function App() {
   const [tema, setTema] = useState(() => localStorage.getItem("prt_tema") || "escuro");
@@ -1306,7 +1906,7 @@ export default function App() {
   const [empresa, setEmpresa] = useState(null);
   const [membro, setMembro] = useState(null);
   const [tela, setTela] = useState("dashboard");
-  const [dados, setDados] = useState({ lancamentos:[], contas:[], investimentos:[], orcamento:[], categorias:[], subcategorias:[] });
+  const [dados, setDados] = useState({ lancamentos:[], contas:[], categorias:[], clientes:[], fornecedores:[], projetos:[], contasPagar:[] });
   const [carregando, setCarregando] = useState(false);
   const [verificando, setVerificando] = useState(true);
 
@@ -1350,15 +1950,16 @@ export default function App() {
     setCarregando(true);
     try {
       const eid = empresa.id;
-      const [lancamentos, contas, investimentos, orcamento, categorias, subcategorias] = await Promise.all([
-        sb(`lancamentos?empresa_id=eq.${eid}&order=data.desc`),
+      const [lancamentos, contas, categorias, clientes, fornecedores, projetos, contasPagar] = await Promise.all([
+        sb(`lancamentos?empresa_id=eq.${eid}&order=data_competencia.desc`),
         sb(`contas?empresa_id=eq.${eid}&order=nome.asc`),
-        sb(`investimentos?empresa_id=eq.${eid}&order=nome.asc`),
-        sb(`orcamento?empresa_id=eq.${eid}&order=ano.desc,mes.desc`),
-        sb(`categorias?empresa_id=eq.${eid}&order=nome.asc`),
-        sb(`subcategorias?empresa_id=eq.${eid}&order=nome.asc`),
+        sb(`categorias?empresa_id=eq.${eid}&order=ordem.asc,nome.asc`),
+        sb(`clientes?empresa_id=eq.${eid}&order=nome.asc`),
+        sb(`fornecedores?empresa_id=eq.${eid}&order=nome.asc`),
+        sb(`projetos?empresa_id=eq.${eid}&order=created_at.desc`),
+        sb(`contas_pagar?empresa_id=eq.${eid}&order=vencimento.asc`),
       ]);
-      setDados({ lancamentos, contas, investimentos, orcamento, categorias, subcategorias });
+      setDados({ lancamentos, contas, categorias, clientes, fornecedores, projetos, contasPagar });
     } catch(e) { console.error(e); }
     setCarregando(false);
   }, [empresa]);
@@ -1382,14 +1983,21 @@ export default function App() {
             <div style={{ color:"rgba(255,255,255,0.3)", fontSize:14, paddingTop:40 }}>Carregando...</div>
           ) : (
             <>
-              {tela==="dashboard"     && <Dashboard {...props} subcategorias={dados.subcategorias} />}
-              {tela==="lancamentos"   && <Lancamentos {...props} />}
-              {tela==="contas_pagar"  && <ContasPagar {...props} />}
-              {tela==="contas"        && <Contas {...props} />}
-              {tela==="investimentos" && <Investimentos {...props} />}
-              {tela==="orcamento"     && <Orcamento {...props} />}
+              {tela==="dashboard"    && <Dashboard {...props} setTela={setTela} />}
+              {tela==="lancamentos"  && <Lancamentos {...props} />}
+              {tela==="contas_pagar" && <ContasPagar {...props} />}
+              {tela==="dre"          && <DRE lancamentos={dados.lancamentos} categorias={dados.categorias} />}
+              {tela==="fluxo_caixa"  && <FluxoCaixa lancamentos={dados.lancamentos} categorias={dados.categorias} />}
+              {tela==="por_cliente"  && <PorCliente lancamentos={dados.lancamentos} clientes={dados.clientes} projetos={dados.projetos} />}
+              {tela==="por_projeto"  && <PorProjeto lancamentos={dados.lancamentos} projetos={dados.projetos} clientes={dados.clientes} />}
+              {tela==="clientes"     && <Clientes clientes={dados.clientes} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
+              {tela==="fornecedores" && <Fornecedores fornecedores={dados.fornecedores} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
+              {tela==="projetos"     && <Projetos projetos={dados.projetos} clientes={dados.clientes} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
+              {tela==="contas"       && <Contas contas={dados.contas} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
+              
+              
               {tela==="relatorios"    && <Relatorios {...props} />}
-              {tela==="categorias"    && <Categorias {...props} />}
+              {tela==="categorias"   && <Categorias categorias={dados.categorias} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
               {tela==="usuarios"      && <Usuarios empresa={empresa} userId={user.id} />}
             </>
           )}
