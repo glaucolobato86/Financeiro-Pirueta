@@ -845,7 +845,7 @@ const GRUPOS = {
 const fmtPct = (v) => `${Number(v).toFixed(1)}%`;
 
 // ── Dashboard ERP ──────────────────────────────────────────────────────────────
-function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTela }) {
+function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, projetos, setTela }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
   const [inicio, setInicio] = useState(primeiroDia);
@@ -882,11 +882,24 @@ function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTel
 
   // Pizza chart
   const [pTipo, setPTipo] = useState("receita_operacional");
+  const [pCatSel, setPCatSel] = useState(null); // categoria selecionada para ver subcats
   const PALETA = ["#6366f1","#f97316","#8b5cf6","#eab308","#06b6d4","#10b981","#ec4899","#ef4444","#a78bfa","#f59e0b","#84cc16","#14b8a6"];
+
   const porCatPizza = useMemo(()=>categorias.filter(c=>c.grupo===pTipo).map((cat,i)=>({
     ...cat, cor: cat.cor || PALETA[i%PALETA.length],
     total: filtrados.filter(l=>l.tipo_lancamento===pTipo&&l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0)
   })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total), [filtrados, categorias, pTipo]);
+
+  // Subcategorias da categoria selecionada
+  const subcats = subcategorias || [];
+  const porSubPizza = useMemo(()=>{
+    if(!pCatSel) return [];
+    const subs = (subcats||[]).filter(s=>s.categoria_id===pCatSel.id);
+    const semSub = filtrados.filter(l=>l.tipo_lancamento===pTipo&&l.categoria_id===pCatSel.id&&!l.subcategoria_id).reduce((s,l)=>s+Number(l.valor),0);
+    const result = subs.map((s,i)=>({...s, cor:s.cor||PALETA[(i+3)%PALETA.length], total:filtrados.filter(l=>l.subcategoria_id===s.id).reduce((x,l)=>x+Number(l.valor),0)})).filter(s=>s.total>0);
+    if(semSub>0) result.push({id:"sem",nome:"Sem subcategoria",cor:"#64748b",total:semSub});
+    return result.sort((a,b)=>b.total-a.total);
+  }, [filtrados, pCatSel, subcats, pTipo]);
 
   const card = (label,valor,cor,sub=null,click=null) => (
     <div onClick={click} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px", cursor:click?"pointer":"default" }}>
@@ -969,47 +982,103 @@ function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTel
 
       {/* Gráfico Pizza */}
       <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20, marginTop:16 }}>
+        {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-          <div style={{ fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.6)" }}>Análise por gráfico</div>
+          <div>
+            <div style={{ fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.7)" }}>
+              {pCatSel ? (
+                <span>
+                  <button onClick={()=>setPCatSel(null)} style={{ background:"none", border:"none", color:"#818cf8", cursor:"pointer", fontSize:13, padding:0, marginRight:8 }}>← Categorias</button>
+                  {pCatSel.nome} — Subcategorias
+                </span>
+              ) : "Análise por gráfico"}
+            </div>
+            {!pCatSel && <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginTop:2 }}>Clique em uma categoria para ver subcategorias</div>}
+          </div>
           <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:3 }}>
-            {[["receita_operacional","Receitas Op."],["despesa_operacional","Despesas Op."],["repasse_terceiros","Repasses"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setPTipo(v)} style={{ padding:"5px 10px", borderRadius:6, border:"none", background:pTipo===v?"rgba(99,102,241,0.25)":"transparent", color:pTipo===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:11, cursor:"pointer", fontWeight:pTipo===v?500:400 }}>{l}</button>
+            {[["receita_operacional","Receitas"],["despesa_operacional","Despesas"],["repasse_terceiros","Repasses"]].map(([v,l])=>(
+              <button key={v} onClick={()=>{ setPTipo(v); setPCatSel(null); }} style={{ padding:"5px 10px", borderRadius:6, border:"none", background:pTipo===v?"rgba(99,102,241,0.25)":"transparent", color:pTipo===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:11, cursor:"pointer", fontWeight:pTipo===v?500:400 }}>{l}</button>
             ))}
           </div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", gap:24, alignItems:"center" }}>
-          {/* Pizza SVG */}
-          {(()=>{
-            const dados = porCatPizza;
-            const total = dados.reduce((s,d)=>s+d.total,0);
-            if(!dados.length||total===0) return <div style={{ color:"rgba(255,255,255,0.2)", fontSize:13, padding:"40px 0", gridColumn:"1/-1", textAlign:"center" }}>Sem dados no período</div>;
-            let angulo=0; const cx=90,cy=90,raio=75,furo=38;
-            const fatias=dados.map(d=>{ const pct=d.total/total; const rad=pct*2*Math.PI; const x1o=cx+raio*Math.sin(angulo),y1o=cy-raio*Math.cos(angulo); const x1i=cx+furo*Math.sin(angulo),y1i=cy-furo*Math.cos(angulo); angulo+=rad; const x2o=cx+raio*Math.sin(angulo),y2o=cy-raio*Math.cos(angulo); const x2i=cx+furo*Math.sin(angulo),y2i=cy-furo*Math.cos(angulo); const large=rad>Math.PI?1:0; const path=`M${x1i.toFixed(1)},${y1i.toFixed(1)} L${x1o.toFixed(1)},${y1o.toFixed(1)} A${raio},${raio} 0 ${large},1 ${x2o.toFixed(1)},${y2o.toFixed(1)} L${x2i.toFixed(1)},${y2i.toFixed(1)} A${furo},${furo} 0 ${large},0 ${x1i.toFixed(1)},${y1i.toFixed(1)} Z`; return {...d,path,pct}; });
-            return (<>
-              <svg width={180} height={180} viewBox="0 0 180 180">
-                {fatias.map((f,i)=><path key={i} d={f.path} fill={f.cor||"#6366f1"} stroke="transparent" strokeWidth={2}><title>{f.nome}: {fmt(f.total)} ({(f.pct*100).toFixed(1)}%)</title></path>)}
-              </svg>
-              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+
+        {/* Pizza + Legenda */}
+        {(()=>{
+          const dados = pCatSel ? porSubPizza : porCatPizza;
+          const total = dados.reduce((s,d)=>s+d.total,0);
+
+          if(!dados.length||total===0) return (
+            <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>
+              <div style={{ fontSize:28, marginBottom:8 }}>◎</div>
+              <div style={{ fontSize:13 }}>Sem dados no período</div>
+              {pCatSel && <div style={{ fontSize:11, marginTop:4 }}>Esta categoria não tem subcategorias com lançamentos</div>}
+            </div>
+          );
+
+          let angulo=0;
+          const cx=100,cy=100,raio=85,furo=42;
+          const fatias = dados.map(d=>{
+            const pct=d.total/total;
+            const rad=pct*2*Math.PI;
+            const x1o=cx+raio*Math.sin(angulo), y1o=cy-raio*Math.cos(angulo);
+            const x1i=cx+furo*Math.sin(angulo), y1i=cy-furo*Math.cos(angulo);
+            angulo+=rad;
+            const x2o=cx+raio*Math.sin(angulo), y2o=cy-raio*Math.cos(angulo);
+            const x2i=cx+furo*Math.sin(angulo), y2i=cy-furo*Math.cos(angulo);
+            const large=rad>Math.PI?1:0;
+            const path=`M${x1i.toFixed(1)},${y1i.toFixed(1)} L${x1o.toFixed(1)},${y1o.toFixed(1)} A${raio},${raio} 0 ${large},1 ${x2o.toFixed(1)},${y2o.toFixed(1)} L${x2i.toFixed(1)},${y2i.toFixed(1)} A${furo},${furo} 0 ${large},0 ${x1i.toFixed(1)},${y1i.toFixed(1)} Z`;
+            return {...d, path, pct};
+          });
+
+          return (
+            <div style={{ display:"grid", gridTemplateColumns:"200px 1fr", gap:24, alignItems:"start" }}>
+              {/* SVG */}
+              <div style={{ position:"relative" }}>
+                <svg width={200} height={200} viewBox="0 0 200 200">
+                  {fatias.map((f,i)=>(
+                    <path key={i} d={f.path}
+                      fill={f.cor||"#6366f1"}
+                      stroke="#1a1a2e" strokeWidth={2}
+                      style={{ cursor: !pCatSel?"pointer":"default", opacity:1, transition:"opacity 0.15s" }}
+                      onClick={()=>{ if(!pCatSel) setPCatSel(f); }}
+                      onMouseEnter={e=>e.target.style.opacity="0.8"}
+                      onMouseLeave={e=>e.target.style.opacity="1"}>
+                      <title>{f.nome}: {fmt(f.total)} ({(f.pct*100).toFixed(1)}%)</title>
+                    </path>
+                  ))}
+                  {/* Centro */}
+                  <text x={cx} y={cy-6} textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.4)" fontFamily="DM Sans">TOTAL</text>
+                  <text x={cx} y={cy+10} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.6)" fontFamily="DM Sans">{fmt(total)}</text>
+                </svg>
+                {!pCatSel && <div style={{ position:"absolute", bottom:-16, left:0, right:0, textAlign:"center", fontSize:10, color:"rgba(255,255,255,0.25)" }}>clique para detalhar</div>}
+              </div>
+
+              {/* Legenda */}
+              <div>
                 {fatias.map((f,i)=>(
-                  <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"5px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                  <div key={i}
+                    onClick={()=>{ if(!pCatSel) setPCatSel(f); }}
+                    style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", borderRadius:8, marginBottom:4, cursor:!pCatSel?"pointer":"default", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.04)", transition:"background 0.15s" }}
+                    onMouseEnter={e=>{ if(!pCatSel) e.currentTarget.style.background="rgba(255,255,255,0.07)"; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.03)"; }}>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      <div style={{ width:8, height:8, borderRadius:2, background:f.cor||"#6366f1" }} />
-                      <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>{f.nome}</span>
+                      <div style={{ width:10, height:10, borderRadius:3, background:f.cor||"#6366f1", flexShrink:0 }} />
+                      <span style={{ fontSize:12, color:"rgba(255,255,255,0.8)" }}>{f.nome}</span>
                     </div>
-                    <div style={{ textAlign:"right" }}>
-                      <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.9)" }}>{fmt(f.total)}</div>
+                    <div style={{ textAlign:"right", flexShrink:0 }}>
+                      <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.95)" }}>{fmt(f.total)}</div>
                       <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>{(f.pct*100).toFixed(1)}%</div>
                     </div>
                   </div>
                 ))}
-                <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0 0", borderTop:"1px solid rgba(255,255,255,0.1)" }}>
-                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>Total</span>
-                  <span style={{ fontSize:13, fontWeight:700, color:"#818cf8" }}>{fmt(total)}</span>
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 10px 0", borderTop:"1px solid rgba(255,255,255,0.08)", marginTop:4 }}>
+                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.4)", fontWeight:500 }}>Total</span>
+                  <span style={{ fontSize:14, fontWeight:700, color:"#818cf8" }}>{fmt(total)}</span>
                 </div>
               </div>
-            </>);
-          })()}
-        </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -1956,7 +2025,7 @@ export default function App() {
             <div style={{ color:"rgba(255,255,255,0.3)", fontSize:14, paddingTop:40 }}>Carregando...</div>
           ) : (
             <>
-              {tela==="dashboard"    && <Dashboard {...props} setTela={setTela} />}
+              {tela==="dashboard"    && <Dashboard {...props} subcategorias={dados.subcategorias} setTela={setTela} />}
               {tela==="lancamentos"  && <Lancamentos {...props} />}
               {tela==="contas_pagar" && <ContasPagar {...props} />}
               {tela==="dre"          && <DRE lancamentos={dados.lancamentos} categorias={dados.categorias} />}
