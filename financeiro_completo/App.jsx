@@ -281,14 +281,98 @@ function PreviewModal({ preview, onClose }) {
   );
 }
 
+// ── Gráfico Pizza ─────────────────────────────────────────────────────────────
+function GraficoPizza({ dados, total }) {
+  if (!dados.length || total === 0) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:200, color:"rgba(255,255,255,0.2)", fontSize:13 }}>
+      Sem dados no período
+    </div>
+  );
+  let angulo = 0;
+  const cx = 110, cy = 110, raio = 90, furo = 48;
+  const fatias = dados.map(d => {
+    const pct = d.total / total;
+    const rad = pct * 2 * Math.PI;
+    const x1o = cx + raio * Math.sin(angulo), y1o = cy - raio * Math.cos(angulo);
+    const x1i = cx + furo * Math.sin(angulo), y1i = cy - furo * Math.cos(angulo);
+    angulo += rad;
+    const x2o = cx + raio * Math.sin(angulo), y2o = cy - raio * Math.cos(angulo);
+    const x2i = cx + furo * Math.sin(angulo), y2i = cy - furo * Math.cos(angulo);
+    const large = rad > Math.PI ? 1 : 0;
+    const path = `M${x1i.toFixed(1)},${y1i.toFixed(1)} L${x1o.toFixed(1)},${y1o.toFixed(1)} A${raio},${raio} 0 ${large},1 ${x2o.toFixed(1)},${y2o.toFixed(1)} L${x2i.toFixed(1)},${y2i.toFixed(1)} A${furo},${furo} 0 ${large},0 ${x1i.toFixed(1)},${y1i.toFixed(1)} Z`;
+    return { ...d, path, pct };
+  });
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:20, flexWrap:"wrap" }}>
+      <svg width={220} height={220} viewBox="0 0 220 220" style={{ flexShrink:0 }}>
+        {fatias.map((f,i) => (
+          <path key={i} d={f.path} fill={f.cor||"#6366f1"} stroke="transparent" strokeWidth={2}>
+            <title>{f.nome}: {fmt(f.total)} ({(f.pct*100).toFixed(1)}%)</title>
+          </path>
+        ))}
+      </svg>
+      <div style={{ display:"flex", flexDirection:"column", gap:8, flex:1, minWidth:140 }}>
+        {fatias.map((f,i) => (
+          <div key={i} style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:10, height:10, borderRadius:3, background:f.cor||"#6366f1", flexShrink:0 }} />
+            <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)", flex:1 }}>{f.nome}</span>
+            <span style={{ fontSize:12, color:"rgba(255,255,255,0.5)", fontWeight:500 }}>{(f.pct*100).toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Dashboard ──────────────────────────────────────────────────────────────────
-function Dashboard({ lancamentos, contas, investimentos, categorias }) {
+function Dashboard({ lancamentos, contas, investimentos, categorias, subcategorias }) {
+  const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
+
   const rec = lancamentos.filter(l=>l.tipo==="receita").reduce((s,l)=>s+Number(l.valor),0);
   const desp = lancamentos.filter(l=>l.tipo==="despesa").reduce((s,l)=>s+Number(l.valor),0);
   const saldo = contas.reduce((s,c)=>s+Number(c.saldo),0);
   const invest = investimentos.reduce((s,i)=>s+Number(i.valor_atual),0);
   const porCat = categorias.filter(c=>c.tipo==="despesa").map(cat=>({ ...cat, total:lancamentos.filter(l=>l.categoria_id===cat.id&&l.tipo==="despesa").reduce((s,l)=>s+Number(l.valor),0) })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total).slice(0,6);
   const ultimos = [...lancamentos].sort((a,b)=>new Date(b.data)-new Date(a.data)).slice(0,7);
+
+  // Filtros do gráfico pizza
+  const [pInicio, setPInicio] = useState(primeiroDia);
+  const [pFim, setPFim] = useState(hoje);
+  const [pCat, setPCat] = useState("");
+  const [pSub, setPSub] = useState("");
+  const [pTipo, setPTipo] = useState("despesa");
+
+  const subsDisponiveis = useMemo(() => (subcategorias||[]).filter(s => s.categoria_id === pCat), [subcategorias, pCat]);
+
+  const dadosPizza = useMemo(() => {
+    const filtrados = lancamentos.filter(l => {
+      if (l.tipo !== pTipo) return false;
+      if (pInicio && l.data < pInicio) return false;
+      if (pFim && l.data > pFim) return false;
+      if (pCat && l.categoria_id !== pCat) return false;
+      if (pSub && l.subcategoria_id !== pSub) return false;
+      return true;
+    });
+
+    if (pSub) {
+      // Agrupado por subcategoria da sub selecionada
+      return [{ id: pSub, nome: (subcategorias||[]).find(s=>s.id===pSub)?.nome||"Subcategoria", cor:"#6366f1", total: filtrados.reduce((s,l)=>s+Number(l.valor),0) }].filter(x=>x.total>0);
+    }
+    if (pCat) {
+      // Agrupado por subcategoria dentro da categoria
+      const subs = (subcategorias||[]).filter(s=>s.categoria_id===pCat);
+      const semSub = filtrados.filter(l=>!l.subcategoria_id).reduce((s,l)=>s+Number(l.valor),0);
+      const resultado = subs.map(s=>({ ...s, total: filtrados.filter(l=>l.subcategoria_id===s.id).reduce((x,l)=>x+Number(l.valor),0) })).filter(x=>x.total>0);
+      if (semSub>0) resultado.push({ id:"sem", nome:"Sem subcategoria", cor:"#aeaeb2", total:semSub });
+      return resultado.sort((a,b)=>b.total-a.total);
+    }
+    // Agrupado por categoria
+    return categorias.filter(c=>c.tipo===pTipo).map(cat=>({ ...cat, total:filtrados.filter(l=>l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0) })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+  }, [lancamentos, categorias, subcategorias, pInicio, pFim, pCat, pSub, pTipo]);
+
+  const totalPizza = dadosPizza.reduce((s,d)=>s+d.total,0);
+
   return (
     <div>
       <div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Dashboard</div>
@@ -301,7 +385,7 @@ function Dashboard({ lancamentos, contas, investimentos, categorias }) {
           </div>
         ))}
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
         <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
           <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:14 }}>Despesas por categoria</div>
           {porCat.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.25)" }}>Nenhum lançamento ainda.</div>}
@@ -335,6 +419,72 @@ function Dashboard({ lancamentos, contas, investimentos, categorias }) {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Gráfico Pizza */}
+      <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
+        <div style={{ fontSize:13, fontWeight:500, color:"rgba(255,255,255,0.5)", marginBottom:16 }}>Análise por gráfico</div>
+
+        {/* Filtros */}
+        <div style={{ display:"flex", gap:10, marginBottom:20, flexWrap:"wrap", alignItems:"center" }}>
+          {/* Tipo */}
+          <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:3 }}>
+            {[["despesa","Despesas"],["receita","Receitas"]].map(([v,l])=>(
+              <button key={v} onClick={()=>{ setPTipo(v); setPCat(""); setPSub(""); }}
+                style={{ padding:"5px 12px", borderRadius:6, border:"none", background:pTipo===v?"rgba(99,102,241,0.25)":"transparent", color:pTipo===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:12, cursor:"pointer", fontWeight:pTipo===v?500:400 }}>{l}</button>
+            ))}
+          </div>
+          {/* Período */}
+          <input type="date" value={pInicio} onChange={e=>setPInicio(e.target.value)}
+            style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+          <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>até</span>
+          <input type="date" value={pFim} onChange={e=>setPFim(e.target.value)}
+            style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
+          <button onClick={()=>{setPInicio(primeiroDia);setPFim(hoje);}}
+            style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 11px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+          <button onClick={()=>{setPInicio("");setPFim("");}}
+            style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 11px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Tudo</button>
+          {/* Categoria */}
+          <select value={pCat} onChange={e=>{ setPCat(e.target.value); setPSub(""); }}
+            style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }}>
+            <option value="">Todas categorias</option>
+            {categorias.filter(c=>c.tipo===pTipo).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+          {/* Subcategoria */}
+          {pCat && subsDisponiveis.length > 0 && (
+            <select value={pSub} onChange={e=>setPSub(e.target.value)}
+              style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }}>
+              <option value="">Todas subcategorias</option>
+              {subsDisponiveis.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select>
+          )}
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, alignItems:"center" }}>
+          <GraficoPizza dados={dadosPizza} total={totalPizza} />
+          <div>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:12 }}>Detalhamento</div>
+            {dadosPizza.length === 0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.2)" }}>Sem dados no período selecionado</div>}
+            {dadosPizza.map(d=>(
+              <div key={d.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ width:8, height:8, borderRadius:2, background:d.cor||"#6366f1", flexShrink:0 }} />
+                  <span style={{ fontSize:13, color:"rgba(255,255,255,0.7)" }}>{d.nome}</span>
+                </div>
+                <div style={{ textAlign:"right" }}>
+                  <div style={{ fontSize:13, fontWeight:500, color:pTipo==="despesa"?"#f87171":"#34d399" }}>{fmt(d.total)}</div>
+                  <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>{totalPizza?((d.total/totalPizza)*100).toFixed(1):0}%</div>
+                </div>
+              </div>
+            ))}
+            {dadosPizza.length > 0 && (
+              <div style={{ display:"flex", justifyContent:"space-between", padding:"10px 0 0", marginTop:4, borderTop:"1px solid rgba(255,255,255,0.08)" }}>
+                <span style={{ fontSize:13, color:"rgba(255,255,255,0.5)", fontWeight:500 }}>Total</span>
+                <span style={{ fontSize:14, fontWeight:600, color:pTipo==="despesa"?"#f87171":"#34d399" }}>{fmt(totalPizza)}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -609,7 +759,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
       </div>
 
       <div style={{ display:"flex", gap:7, marginBottom:16 }}>
-        {[["todos","Todos","#6366f1"],["vencido","Vencidos","#f87171"],["avencer","A vencer","#fbbf24"],["aberto","Em aberto","#818cf8"],["pago","Pagos","#34d399"]].map(([v,l,c])=>(
+        {[["todos","Todos","rgba(255,255,255,0.4)"],["vencido","Vencidos","#f87171"],["avencer","A vencer","#fbbf24"],["aberto","Em aberto","#818cf8"],["pago","Pagos","#34d399"]].map(([v,l,c])=>(
           <button key={v} onClick={()=>setFiltroStatus(v)} style={{ padding:"5px 13px", borderRadius:6, border:`1px solid ${filtroStatus===v?c:"rgba(255,255,255,0.1)"}`, background:filtroStatus===v?c+"22":"transparent", color:filtroStatus===v?c:"rgba(255,255,255,0.4)", fontSize:12, cursor:"pointer" }}>{l}</button>
         ))}
       </div>
@@ -1223,7 +1373,7 @@ export default function App() {
             <div style={{ color:"rgba(255,255,255,0.3)", fontSize:14, paddingTop:40 }}>Carregando...</div>
           ) : (
             <>
-              {tela==="dashboard"     && <Dashboard {...props} />}
+              {tela==="dashboard"     && <Dashboard {...props} subcategorias={dados.subcategorias} />}
               {tela==="lancamentos"   && <Lancamentos {...props} />}
               {tela==="contas_pagar"  && <ContasPagar {...props} />}
               {tela==="contas"        && <Contas {...props} />}
