@@ -1214,8 +1214,38 @@ export default function App() {
 
   const props = { ...dados, empresaId:empresa.id, userId:user.id, onRefresh:carregar, membro };
 
+  const estilos = tema === "claro" ? {
+    "--bg":"#f5f5f7", "--card":"#ffffff", "--sidebar":"#ffffff",
+    "--border":"#e5e5ea", "--text":"#1c1c1e", "--sub":"#6b6b6b", "--muted":"#aeaeb2",
+    "--input":"#ebebf0", "--hover":"#f0f0f5", "--active-bg":"#ede9fe",
+  } : {
+    "--bg":"#0a0a0f", "--card":"#13131a", "--sidebar":"#0d0d14",
+    "--border":"rgba(255,255,255,0.08)", "--text":"#ffffff", "--sub":"rgba(255,255,255,0.5)", "--muted":"rgba(255,255,255,0.3)",
+    "--input":"rgba(255,255,255,0.06)", "--hover":"rgba(255,255,255,0.04)", "--active-bg":"rgba(99,102,241,0.15)",
+  };
+
   return (
-    <div style={{ display:"flex", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", background:"#0a0a0f", color:"#fff", transition:"background 0.3s, color 0.3s" }}>
+    <div style={{ display:"flex", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", background:"var(--bg)", color:"var(--text)", transition:"background 0.3s, color 0.3s", ...estilos }}>
+      <style>{`
+        * { box-sizing: border-box; }
+        input, select, textarea {
+          background: var(--input) !important;
+          color: var(--text) !important;
+          border-color: var(--border) !important;
+        }
+        select option { background: var(--card); color: var(--text); }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+      `}</style>
+      <button onClick={trocarTema} style={{
+        position:"fixed", top:14, right:18, zIndex:500,
+        background:"var(--card)", border:"1px solid var(--border)",
+        borderRadius:20, padding:"6px 16px", cursor:"pointer",
+        fontSize:12, color:"var(--sub)", fontFamily:"'DM Sans',sans-serif",
+        fontWeight:500, boxShadow:"0 1px 6px rgba(0,0,0,0.15)"
+      }}>
+        {tema === "escuro" ? "☀️ Claro" : "🌙 Escuro"}
+      </button>
       <Sidebar tela={tela} setTela={setTela} user={user} empresa={empresa} membro={membro} onLogout={logout} />
       <div style={{ flex:1, overflowY:"auto" }}>
         <div style={{ padding:"28px 32px", maxWidth:1100 }}>
