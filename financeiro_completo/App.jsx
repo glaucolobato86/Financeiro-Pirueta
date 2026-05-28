@@ -663,7 +663,7 @@ function Relatorios({ lancamentos, categorias }) {
       </div>
       <div style={{ display:"flex", alignItems:"center", gap:12, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 16px", marginBottom:14, flexWrap:"wrap" }}>
         {[["De",inicio,setInicio],["Até",fim,setFim]].map(([label,val,set])=>(<div key={label} style={{ display:"flex", alignItems:"center", gap:8 }}><span style={{ fontSize:12, color:"rgba(255,255,255,0.5)" }}>{label}</span><input type="date" value={val} onChange={e=>set(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} /></div>))}
-        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:6, padding:"6px 12px", color:"#818cf8", fontSize:12, cursor:"pointer" }}>Mês atual</button>
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:6, padding:"6px 12px", color:"#818cf8", fontSize:12, cursor:"pointer" }}>Mês atual</button>
       </div>
       <div style={{ display:"flex", gap:10, marginBottom:20 }}>
         <select style={{ ...selectStyle, width:"auto", minWidth:140 }} value={filtroTipo} onChange={e=>setFiltroTipo(e.target.value)}><option value="todos">Tipo: Todos</option><option value="receita">Receitas</option><option value="despesa">Despesas</option></select>
@@ -848,8 +848,8 @@ const fmtPct = (v) => `${Number(v).toFixed(1)}%`;
 function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTela }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-  const [inicio, setInicio] = useState(primeiroDia());
-  const [fim, setFim] = useState(hoje());
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
 
   const filtrados = useMemo(()=>lancamentos.filter(l=>{
     if(inicio && l.data_competencia < inicio) return false;
@@ -907,8 +907,8 @@ function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTel
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês atual</button>
-        <button onClick={()=>{ const a=new Date(); setInicio(new Date(a.getFullYear(),0,1).toISOString().split("T")[0]); setFim(hoje()); }} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Ano</button>
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês atual</button>
+        <button onClick={()=>{ const a=new Date(); setInicio(new Date(a.getFullYear(),0,1).toISOString().split("T")[0]); setFim(hoje); }} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Ano</button>
         <button onClick={()=>{setInicio("");setFim("");}} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Tudo</button>
       </div>
 
@@ -1018,8 +1018,8 @@ function Dashboard({ lancamentos, contas, categorias, clientes, projetos, setTel
 // ── Lançamentos ERP ────────────────────────────────────────────────────────────
 function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, projetos, empresaId, userId, onRefresh, membro }) {
   const [filtro, setFiltro] = useState("todos");
-  const [dataInicio, setDataInicio] = useState(primeiroDiaMes());
-  const [dataFim, setDataFim] = useState(hoje());
+  const [dataInicio, setDataInicio] = useState(new Date().toISOString().slice(0,7)+"-01");
+  const [dataFim, setDataFim] = useState(new Date().toISOString().split("T")[0]);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [nf, setNf] = useState(null);
@@ -1126,7 +1126,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
         <input type="date" value={dataInicio} onChange={e=>setDataInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>até</span>
         <input type="date" value={dataFim} onChange={e=>setDataFim(e.target.value)} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setDataInicio(primeiroDiaMes());setDataFim(hoje());}} style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"6px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{setDataInicio(new Date().toISOString().slice(0,7)+"-01");setDataFim(new Date().toISOString().split("T")[0]);}} style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"6px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
       </div>
 
       {/* Lista por dia */}
@@ -1278,8 +1278,8 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
 function DRE({ lancamentos, categorias }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-  const [inicio, setInicio] = useState(primeiroDia());
-  const [fim, setFim] = useState(hoje());
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
 
   const base = useMemo(()=>lancamentos.filter(l=>{
     if(!l.impacta_dre) return false;
@@ -1320,7 +1320,7 @@ function DRE({ lancamentos, categorias }) {
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
         <div style={{ marginLeft:"auto", fontSize:11, color:"rgba(249,115,22,0.8)", background:"rgba(249,115,22,0.08)", borderRadius:6, padding:"4px 10px" }}>
           ⚠ Repasses de terceiros excluídos desta visão
         </div>
@@ -1401,8 +1401,8 @@ function DRE({ lancamentos, categorias }) {
 function FluxoCaixa({ lancamentos, categorias }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-  const [inicio, setInicio] = useState(primeiroDia());
-  const [fim, setFim] = useState(hoje());
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
 
   const base = useMemo(()=>lancamentos.filter(l=>{
     if(l.impacta_caixa===false) return false;
@@ -1431,7 +1431,7 @@ function FluxoCaixa({ lancamentos, categorias }) {
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
         <div style={{ display:"flex", gap:16, marginLeft:"auto" }}>
           <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>ENTRADAS</div><div style={{ fontSize:15, fontWeight:700, color:"#818cf8" }}>{fmt(totalEnt)}</div></div>
           <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>SAÍDAS</div><div style={{ fontSize:15, fontWeight:700, color:"#f87171" }}>{fmt(totalSai)}</div></div>
@@ -1472,8 +1472,8 @@ function FluxoCaixa({ lancamentos, categorias }) {
 function PorCliente({ lancamentos, clientes, projetos }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-  const [inicio, setInicio] = useState(primeiroDia());
-  const [fim, setFim] = useState(hoje());
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
 
   const base = useMemo(()=>lancamentos.filter(l=>{
     if(inicio && l.data_competencia < inicio) return false;
@@ -1501,7 +1501,7 @@ function PorCliente({ lancamentos, clientes, projetos }) {
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
       </div>
 
       {dados.length===0 && <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>Nenhum cliente com lançamentos no período</div>}
@@ -1532,8 +1532,8 @@ function PorCliente({ lancamentos, clientes, projetos }) {
 function PorProjeto({ lancamentos, projetos, clientes }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
-  const [inicio, setInicio] = useState(primeiroDia());
-  const [fim, setFim] = useState(hoje());
+  const [inicio, setInicio] = useState(primeiroDia);
+  const [fim, setFim] = useState(hoje);
 
   const base = useMemo(()=>lancamentos.filter(l=>{
     if(inicio && l.data_competencia < inicio) return false;
@@ -1563,7 +1563,7 @@ function PorProjeto({ lancamentos, projetos, clientes }) {
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia());setFim(hoje());}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
       </div>
 
       {dados.length===0 && <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>Nenhum projeto com lançamentos no período</div>}
