@@ -1217,22 +1217,51 @@ export default function App() {
   const estilos = tema === "claro" ? {
     "--bg":"#f5f5f7", "--card":"#ffffff", "--sidebar":"#ffffff",
     "--border":"#e5e5ea", "--text":"#1c1c1e", "--sub":"#6b6b6b", "--muted":"#aeaeb2",
-    "--input":"#ebebf0", "--hover":"#f0f0f5", "--active-bg":"#ede9fe",
+    "--input":"#ebebf0", "--hover":"#f0f0f5", "--active-bg":"#ede9fe", "--shadow":"0 2px 8px rgba(0,0,0,0.06)",
   } : {
     "--bg":"#0a0a0f", "--card":"#13131a", "--sidebar":"#0d0d14",
     "--border":"rgba(255,255,255,0.08)", "--text":"#ffffff", "--sub":"rgba(255,255,255,0.5)", "--muted":"rgba(255,255,255,0.3)",
-    "--input":"rgba(255,255,255,0.06)", "--hover":"rgba(255,255,255,0.04)", "--active-bg":"rgba(99,102,241,0.15)",
+    "--input":"rgba(255,255,255,0.06)", "--hover":"rgba(255,255,255,0.04)", "--active-bg":"rgba(99,102,241,0.15)", "--shadow":"none",
   };
 
   return (
     <div style={{ display:"flex", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", background:"var(--bg)", color:"var(--text)", transition:"background 0.3s, color 0.3s", ...estilos }}>
       <style>{`
         * { box-sizing: border-box; }
-        input, select, textarea {
+
+        /* Cards e painéis */
+        [style*="background:\"#1a1a2e\""],
+        [style*="background:\"#13131a\""],
+        [style*="background:\"#13131f\""],
+        [style*="background:\"#0d0d14\""] {
+          background: var(--card) !important;
+          border-color: var(--border) !important;
+          box-shadow: var(--shadow) !important;
+        }
+
+        /* Sidebar */
+        [style*="background:\"#0a0a18\""] {
+          background: var(--sidebar) !important;
+          border-color: var(--border) !important;
+        }
+
+        /* Fundo da página e subpainéis */
+        [style*="background:\"#0a0a0f\""],
+        [style*="background:\"#070710\""] {
+          background: var(--bg) !important;
+        }
+
+        /* Inputs, selects e textareas */
+        input:not([type="file"]):not([type="date"]):not([type="color"]),
+        select, textarea {
           background: var(--input) !important;
           color: var(--text) !important;
           border-color: var(--border) !important;
         }
+
+        /* Botões transparentes do menu */
+        nav button { color: var(--sub) !important; }
+
         select option { background: var(--card); color: var(--text); }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
