@@ -362,7 +362,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
       </div>
 
       <div style={{ display:"flex", gap:7, marginBottom:16 }}>
-        {[["todos","Todos","rgba(255,255,255,0.4)"],["vencido","Vencidos","#f87171"],["avencer","A vencer","#fbbf24"],["aberto","Em aberto","#818cf8"],["pago","Pagos","#34d399"]].map(([v,l,c])=>(
+        {[["todos","Todos","#6366f1"],["vencido","Vencidos","#f87171"],["avencer","A vencer","#fbbf24"],["aberto","Em aberto","#818cf8"],["pago","Pagos","#34d399"]].map(([v,l,c])=>(
           <button key={v} onClick={()=>setFiltroStatus(v)} style={{ padding:"5px 13px", borderRadius:6, border:`1px solid ${filtroStatus===v?c:"rgba(255,255,255,0.1)"}`, background:filtroStatus===v?c+"22":"transparent", color:filtroStatus===v?c:"rgba(255,255,255,0.4)", fontSize:12, cursor:"pointer" }}>{l}</button>
         ))}
       </div>
