@@ -883,17 +883,33 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
   // Pizza chart
   const [pTipo, setPTipo] = useState("receita_operacional");
   const [pCatSel, setPCatSel] = useState(null); // categoria selecionada para ver subcats
-  const PALETA = ["#6366f1","#f97316","#8b5cf6","#eab308","#06b6d4","#10b981","#ec4899","#ef4444","#a78bfa","#f59e0b","#84cc16","#14b8a6"];
+  const PALETA = ["#6366f1","#f97316","#10b981","#ef4444","#eab308","#06b6d4","#ec4899","#84cc16","#a78bfa","#f59e0b","#14b8a6","#8b5cf6","#fb7185","#34d399","#fbbf24","#38bdf8","#c084fc","#4ade80"];
 
-  const porCatPizza = useMemo(()=>categorias.filter(c=>c.grupo===pTipo).map((cat,i)=>({
-    ...cat, cor: cat.cor || PALETA[i%PALETA.length],
-    total: filtrados.filter(l=>l.tipo_lancamento===pTipo&&l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0)
-  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total), [filtrados, categorias, pTipo]);
+  const TIPOS_PIZZA = {
+    receita_operacional: { label:"Receitas Op.", cor:"#6366f1" },
+    repasse_terceiros:   { label:"Repasses",     cor:"#f97316" },
+    despesa_operacional: { label:"Despesas Op.", cor:"#ef4444" },
+    imposto:             { label:"Impostos",     cor:"#eab308" },
+  };
+
+  const porCatPizza = useMemo(()=>{
+    if(pTipo === "todos") {
+      // Mostra os grupos principais juntos
+      return Object.entries(TIPOS_PIZZA).map(([tipo, info], i)=>({
+        id: tipo, nome: info.label, cor: info.cor,
+        total: filtrados.filter(l=>l.tipo_lancamento===tipo).reduce((s,l)=>s+Number(l.valor),0)
+      })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+    }
+    return categorias.filter(c=>c.grupo===pTipo).map((cat,i)=>({
+      ...cat, cor: cat.cor || PALETA[i%PALETA.length],
+      total: filtrados.filter(l=>l.tipo_lancamento===pTipo&&l.categoria_id===cat.id).reduce((s,l)=>s+Number(l.valor),0)
+    })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+  }, [filtrados, categorias, pTipo]);
 
   // Subcategorias da categoria selecionada
   const subcats = subcategorias || [];
   const porSubPizza = useMemo(()=>{
-    if(!pCatSel) return [];
+    if(!pCatSel || pTipo==="todos") return [];
     const subs = (subcats||[]).filter(s=>s.categoria_id===pCatSel.id);
     const semSub = filtrados.filter(l=>l.tipo_lancamento===pTipo&&l.categoria_id===pCatSel.id&&!l.subcategoria_id).reduce((s,l)=>s+Number(l.valor),0);
     const result = subs.map((s,i)=>({...s, cor:s.cor||PALETA[(i+3)%PALETA.length], total:filtrados.filter(l=>l.subcategoria_id===s.id).reduce((x,l)=>x+Number(l.valor),0)})).filter(s=>s.total>0);
@@ -996,7 +1012,7 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
             {!pCatSel && <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginTop:2 }}>Clique em uma categoria para ver subcategorias</div>}
           </div>
           <div style={{ display:"flex", gap:4, background:"rgba(255,255,255,0.04)", borderRadius:8, padding:3 }}>
-            {[["receita_operacional","Receitas"],["despesa_operacional","Despesas"],["repasse_terceiros","Repasses"]].map(([v,l])=>(
+            {[["receita_operacional","Receitas"],["despesa_operacional","Despesas"],["repasse_terceiros","Repasses"],["todos","Visão Geral"]].map(([v,l])=>(
               <button key={v} onClick={()=>{ setPTipo(v); setPCatSel(null); }} style={{ padding:"5px 10px", borderRadius:6, border:"none", background:pTipo===v?"rgba(99,102,241,0.25)":"transparent", color:pTipo===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:11, cursor:"pointer", fontWeight:pTipo===v?500:400 }}>{l}</button>
             ))}
           </div>
@@ -1040,7 +1056,7 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
                       fill={f.cor||"#6366f1"}
                       stroke="#1a1a2e" strokeWidth={2}
                       style={{ cursor: !pCatSel?"pointer":"default", opacity:1, transition:"opacity 0.15s" }}
-                      onClick={()=>{ if(!pCatSel) setPCatSel(f); }}
+                      onClick={()=>{ if(!pCatSel) { if(pTipo==="todos"){ setPTipo(f.id); } else { setPCatSel(f); } } }}
                       onMouseEnter={e=>e.target.style.opacity="0.8"}
                       onMouseLeave={e=>e.target.style.opacity="1"}>
                       <title>{f.nome}: {fmt(f.total)} ({(f.pct*100).toFixed(1)}%)</title>
@@ -1050,14 +1066,14 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
                   <text x={cx} y={cy-6} textAnchor="middle" fontSize="10" fill="rgba(255,255,255,0.4)" fontFamily="DM Sans">TOTAL</text>
                   <text x={cx} y={cy+10} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.6)" fontFamily="DM Sans">{fmt(total)}</text>
                 </svg>
-                {!pCatSel && <div style={{ position:"absolute", bottom:-16, left:0, right:0, textAlign:"center", fontSize:10, color:"rgba(255,255,255,0.25)" }}>clique para detalhar</div>}
+                {!pCatSel && <div style={{ position:"absolute", bottom:-16, left:0, right:0, textAlign:"center", fontSize:10, color:"rgba(255,255,255,0.25)" }}>{pTipo==="todos"?"clique para ver por categoria":"clique para ver subcategorias"}</div>}
               </div>
 
               {/* Legenda */}
               <div>
                 {fatias.map((f,i)=>(
                   <div key={i}
-                    onClick={()=>{ if(!pCatSel) setPCatSel(f); }}
+                    onClick={()=>{ if(!pCatSel) { if(pTipo==="todos"){ setPTipo(f.id); } else { setPCatSel(f); } } }}
                     style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", borderRadius:8, marginBottom:4, cursor:!pCatSel?"pointer":"default", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.04)", transition:"background 0.15s" }}
                     onMouseEnter={e=>{ if(!pCatSel) e.currentTarget.style.background="rgba(255,255,255,0.07)"; }}
                     onMouseLeave={e=>{ e.currentTarget.style.background="rgba(255,255,255,0.03)"; }}>
