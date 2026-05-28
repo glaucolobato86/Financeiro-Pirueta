@@ -297,6 +297,25 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const [preview, setPreview] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const hoje = new Date().toISOString().split("T")[0];
+
+  const getAnexoUrl = async (path) => {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/anexos/${path}`, {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${localStorage.getItem("sb_token")||SUPABASE_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ expiresIn: 3600 })
+      });
+      const data = await res.json();
+      return data.signedURL ? `${SUPABASE_URL}/storage/v1${data.signedURL}` : null;
+    } catch { return null; }
+  };
+
+  const abrirPreview = async (url, nome) => {
+    if(!url) return;
+    // If url is already a full URL use it, otherwise get signed URL
+    const finalUrl = url.startsWith("http") ? url : await getAnexoUrl(url);
+    if(finalUrl) setPreview({ url: finalUrl, nome });
+  };
   const [form, setForm] = useState({ descricao:"", valor:"", vencimento:"", categoria_id:"", subcategoria_id:"", tipo_custo:"variavel", recorrente:false, intervalo_meses:1, observacao:"" });
   const podeExcluir = membro?.perfil !== "visualizador";
   const podeCriar = membro?.perfil !== "visualizador";
@@ -1110,6 +1129,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
   const [nf, setNf] = useState(null);
   const [comp, setComp] = useState(null);
   const [diasAbertos, setDiasAbertos] = useState({});
+  const [preview, setPreview] = useState(null); // { url, nome, tipo }
   const podeCriar = membro?.perfil !== "visualizador";
   const podeExcluir = membro?.perfil !== "visualizador";
 
@@ -1260,6 +1280,25 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
                       <div style={{ fontSize:14, fontWeight:700, color:l.tipo==="entrada"?"#818cf8":"#f87171", minWidth:90, textAlign:"right" }}>
                         {l.tipo==="entrada"?"+":"-"}{fmt(l.valor)}
                       </div>
+                      {/* Anexos */}
+                      {(l.nf_url||l.comprovante_url) && (
+                        <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                          {l.nf_url && (
+                            <button onClick={()=>abrirPreview(l.nf_url, l.nf_nome||"Nota Fiscal")}
+                              title="Ver Nota Fiscal"
+                              style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:6, color:"#818cf8", cursor:"pointer", fontSize:11, padding:"3px 8px" }}>
+                              📄 NF
+                            </button>
+                          )}
+                          {l.comprovante_url && (
+                            <button onClick={()=>abrirPreview(l.comprovante_url, l.comprovante_nome||"Comprovante")}
+                              title="Ver Comprovante"
+                              style={{ background:"rgba(16,185,129,0.12)", border:"1px solid rgba(16,185,129,0.2)", borderRadius:6, color:"#34d399", cursor:"pointer", fontSize:11, padding:"3px 8px" }}>
+                              🧾 CP
+                            </button>
+                          )}
+                        </div>
+                      )}
                       {podeExcluir&&<button className="del" onClick={()=>excluir(l.id)} style={{ background:"rgba(239,68,68,0.12)", border:"none", borderRadius:6, color:"#f87171", cursor:"pointer", fontSize:12, padding:"3px 7px", opacity:0, transition:"opacity 0.15s" }}>✕</button>}
                     </div>
                   );
@@ -1269,6 +1308,49 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
           </div>
         );
       })}
+
+      {/* Modal de Preview de Anexo */}
+      {preview && (
+        <div onClick={()=>setPreview(null)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", zIndex:300, padding:20 }}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:"#13131a", border:"1px solid rgba(255,255,255,0.1)", borderRadius:16, width:"90%", maxWidth:800, maxHeight:"90vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+            {/* Header */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
+              <div style={{ fontSize:14, fontWeight:600, color:"#fff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:500 }}>{preview.nome}</div>
+              <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+                <a href={preview.url} download={preview.nome} target="_blank" rel="noreferrer"
+                  style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:8, padding:"6px 14px", color:"#818cf8", fontSize:12, textDecoration:"none", fontWeight:500 }}>
+                  ⬇ Baixar
+                </a>
+                <a href={preview.url} target="_blank" rel="noreferrer"
+                  style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 14px", color:"rgba(255,255,255,0.6)", fontSize:12, textDecoration:"none" }}>
+                  ↗ Abrir
+                </a>
+                <button onClick={()=>setPreview(null)}
+                  style={{ background:"rgba(239,68,68,0.12)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:8, padding:"6px 12px", color:"#f87171", fontSize:14, cursor:"pointer" }}>
+                  ✕
+                </button>
+              </div>
+            </div>
+            {/* Preview */}
+            <div style={{ flex:1, overflow:"auto", display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.3)", minHeight:200 }}>
+              {preview.url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                <img src={preview.url} alt={preview.nome} style={{ maxWidth:"100%", maxHeight:"70vh", objectFit:"contain", borderRadius:4 }} />
+              ) : preview.url.match(/\.pdf$/i) ? (
+                <iframe src={preview.url} title={preview.nome} style={{ width:"100%", height:"70vh", border:"none" }} />
+              ) : (
+                <div style={{ textAlign:"center", padding:40 }}>
+                  <div style={{ fontSize:48, marginBottom:12 }}>📎</div>
+                  <div style={{ fontSize:14, color:"rgba(255,255,255,0.5)", marginBottom:16 }}>{preview.nome}</div>
+                  <a href={preview.url} target="_blank" rel="noreferrer"
+                    style={{ background:"#6366f1", borderRadius:8, padding:"10px 20px", color:"#fff", textDecoration:"none", fontSize:13, fontWeight:500 }}>
+                    Abrir arquivo
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {modal && (
