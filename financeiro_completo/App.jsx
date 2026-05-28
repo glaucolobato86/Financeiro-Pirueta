@@ -298,24 +298,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const hoje = new Date().toISOString().split("T")[0];
 
-  const getAnexoUrl = async (path) => {
-    try {
-      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/anexos/${path}`, {
-        method: "POST",
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${localStorage.getItem("sb_token")||SUPABASE_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ expiresIn: 3600 })
-      });
-      const data = await res.json();
-      return data.signedURL ? `${SUPABASE_URL}/storage/v1${data.signedURL}` : null;
-    } catch { return null; }
-  };
 
-  const abrirPreview = async (url, nome) => {
-    if(!url) return;
-    // If url is already a full URL use it, otherwise get signed URL
-    const finalUrl = url.startsWith("http") ? url : await getAnexoUrl(url);
-    if(finalUrl) setPreview({ url: finalUrl, nome });
-  };
   const [form, setForm] = useState({ descricao:"", valor:"", vencimento:"", categoria_id:"", subcategoria_id:"", tipo_custo:"variavel", recorrente:false, intervalo_meses:1, observacao:"" });
   const podeExcluir = membro?.perfil !== "visualizador";
   const podeCriar = membro?.perfil !== "visualizador";
@@ -1119,6 +1102,23 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
   );
 }
 
+
+// ── Anexo Preview Helper ───────────────────────────────────────────────────────
+async function abrirPreview(path, nome, setPreview) {
+  if(!path) return;
+  try {
+    const token = localStorage.getItem("sb_token");
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/authenticated/anexos/${path}`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` }
+    });
+    if(!res.ok) throw new Error("Erro " + res.status);
+    const blob = await res.blob();
+    setPreview({ url: URL.createObjectURL(blob), nome: nome || "Arquivo", tipo: blob.type });
+  } catch(e) {
+    alert("Não foi possível abrir: " + e.message);
+  }
+}
+
 // ── Lançamentos ERP ────────────────────────────────────────────────────────────
 function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, projetos, empresaId, userId, onRefresh, membro }) {
   const [filtro, setFiltro] = useState("todos");
@@ -1284,14 +1284,14 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
                       {(l.nf_url||l.comprovante_url) && (
                         <div style={{ display:"flex", gap:4, flexShrink:0 }}>
                           {l.nf_url && (
-                            <button onClick={()=>abrirPreview(l.nf_url, l.nf_nome||"Nota Fiscal")}
+                            <button onClick={()=>abrirPreview(l.nf_url, l.nf_nome||"Nota Fiscal", setPreview)}
                               title="Ver Nota Fiscal"
                               style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:6, color:"#818cf8", cursor:"pointer", fontSize:11, padding:"3px 8px" }}>
                               📄 NF
                             </button>
                           )}
                           {l.comprovante_url && (
-                            <button onClick={()=>abrirPreview(l.comprovante_url, l.comprovante_nome||"Comprovante")}
+                            <button onClick={()=>abrirPreview(l.comprovante_url, l.comprovante_nome||"Comprovante", setPreview)}
                               title="Ver Comprovante"
                               style={{ background:"rgba(16,185,129,0.12)", border:"1px solid rgba(16,185,129,0.2)", borderRadius:6, color:"#34d399", cursor:"pointer", fontSize:11, padding:"3px 8px" }}>
                               🧾 CP
@@ -1317,13 +1317,13 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"14px 20px", borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
               <div style={{ fontSize:14, fontWeight:600, color:"#fff", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:500 }}>{preview.nome}</div>
               <div style={{ display:"flex", gap:8, flexShrink:0 }}>
-                <a href={preview.url} download={preview.nome} target="_blank" rel="noreferrer"
+                <a href={preview.url} download={preview.nome}
                   style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:8, padding:"6px 14px", color:"#818cf8", fontSize:12, textDecoration:"none", fontWeight:500 }}>
                   ⬇ Baixar
                 </a>
                 <a href={preview.url} target="_blank" rel="noreferrer"
                   style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 14px", color:"rgba(255,255,255,0.6)", fontSize:12, textDecoration:"none" }}>
-                  ↗ Abrir
+                  ↗ Nova aba
                 </a>
                 <button onClick={()=>setPreview(null)}
                   style={{ background:"rgba(239,68,68,0.12)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:8, padding:"6px 12px", color:"#f87171", fontSize:14, cursor:"pointer" }}>
@@ -1333,9 +1333,9 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
             </div>
             {/* Preview */}
             <div style={{ flex:1, overflow:"auto", display:"flex", alignItems:"center", justifyContent:"center", background:"rgba(0,0,0,0.3)", minHeight:200 }}>
-              {preview.url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+              {(preview.tipo||"").startsWith("image/") ? (
                 <img src={preview.url} alt={preview.nome} style={{ maxWidth:"100%", maxHeight:"70vh", objectFit:"contain", borderRadius:4 }} />
-              ) : preview.url.match(/\.pdf$/i) ? (
+              ) : (preview.tipo||"") === "application/pdf" ? (
                 <iframe src={preview.url} title={preview.nome} style={{ width:"100%", height:"70vh", border:"none" }} />
               ) : (
                 <div style={{ textAlign:"center", padding:40 }}>
