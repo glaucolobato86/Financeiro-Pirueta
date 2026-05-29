@@ -132,6 +132,9 @@ function EmpresaSetup({ user, onEmpresa }) {
         <div style={{ marginTop:16, fontSize:12, color:"rgba(255,255,255,0.25)", textAlign:"center" }}>
           Você será o administrador da empresa
         </div>
+        <button onClick={onLogout} style={{ marginTop:16, background:"none", border:"none", color:"rgba(255,255,255,0.3)", fontSize:11, cursor:"pointer", width:"100%", textAlign:"center", textDecoration:"underline" }}>
+          Sair e voltar ao login
+        </button>
       </div>
     </div>
   );
@@ -2106,7 +2109,16 @@ export default function App() {
 
   useEffect(()=>{ carregar(); },[carregar]);
 
-  const logout = () => { localStorage.removeItem("sb_token"); localStorage.removeItem("sb_user"); setUser(null); setEmpresa(null); setMembro(null); };
+  const logout = () => {
+    // Limpa todos os dados de autenticação
+    localStorage.removeItem("sb_token");
+    localStorage.removeItem("sb_user");
+    localStorage.removeItem("sb_empresa");
+    setUser(null);
+    setEmpresa(null);
+    setMembro(null);
+    setDados({ lancamentos:[], contas:[], categorias:[], subcategorias:[], clientes:[], fornecedores:[], projetos:[], contasPagar:[] });
+  };
 
   if (!user) return <LoginScreen onLogin={u=>setUser(u)} />;
   if (verificando) return (<div style={{ minHeight:"100vh", background:"#0a0a0f", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.5)", fontFamily:"'DM Sans', sans-serif", fontSize:14 }}><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />Verificando acesso...</div>);
