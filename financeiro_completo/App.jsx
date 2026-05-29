@@ -1615,6 +1615,61 @@ async function abrirPreview(path, nome, setPreview) {
 }
 
 // ── Lançamentos ERP ────────────────────────────────────────────────────────────
+// ── Impressão de Extrato ───────────────────────────────────────────────────────
+function imprimirExtrato(modo, porDia, categorias, clientes, projetos) {
+  const meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  const dias=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+  const fmt=(v)=>Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+  const fmtData=(data)=>{ const[y,m,d]=data.split("-"); return `${dias[new Date(Number(y),Number(m)-1,Number(d)).getDay()]}, ${d} ${meses[Number(m)-1]} ${y}`; };
+
+  const linhasDetalhadas = (itens) => itens.map(l=>{
+    const cat = categorias.find(c=>c.id===l.categoria_id);
+    const cli = clientes.find(c=>c.id===l.cliente_id);
+    const proj = projetos.find(p=>p.id===l.projeto_id);
+    const sinal = l.tipo==="entrada"?"+":"-";
+    const cor = l.tipo==="entrada"?"#4f46e5":"#dc2626";
+    return `<tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:6px 10px;font-size:12px;color:#64748b">${l.descricao||""}</td>
+      <td style="padding:6px 10px;font-size:11px;color:#94a3b8">${cat?.nome||""}</td>
+      <td style="padding:6px 10px;font-size:11px;color:#94a3b8">${cli?.nome||""}${proj?" · "+proj.nome:""}</td>
+      <td style="padding:6px 10px;font-size:12px;font-weight:600;color:${cor};text-align:right">${sinal}${fmt(l.valor)}</td>
+    </tr>`;
+  }).join("");
+
+  const linhas = porDia.map(([data,itens])=>{
+    const ent=itens.filter(l=>l.tipo==="entrada").reduce((s,l)=>s+Number(l.valor),0);
+    const sai=itens.filter(l=>l.tipo==="saida").reduce((s,l)=>s+Number(l.valor),0);
+    const saldo=ent-sai;
+    const corSaldo=saldo>=0?"#16a34a":"#dc2626";
+    const cabecalho=`<tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+      <td colspan="${modo==="detalhado"?4:3}" style="padding:10px 12px;font-weight:700;font-size:13px;color:#1e293b">${fmtData(data)}</td>
+      <td style="padding:10px 12px;text-align:right">
+        <span style="font-size:11px;color:#64748b">Ent: ${fmt(ent)} | Saí: ${fmt(sai)} | </span>
+        <span style="font-size:13px;font-weight:700;color:${corSaldo}">${fmt(saldo)}</span>
+      </td>
+    </tr>`;
+    return cabecalho + (modo==="detalhado" ? linhasDetalhadas(itens) : "");
+  }).join("");
+
+  const colunas = modo==="detalhado"
+    ? `<tr style="background:#1e293b;color:#fff"><th style="padding:8px 10px;text-align:left;font-size:11px">Descrição</th><th style="padding:8px 10px;text-align:left;font-size:11px">Categoria</th><th style="padding:8px 10px;text-align:left;font-size:11px">Cliente / Projeto</th><th style="padding:8px 10px;text-align:right;font-size:11px">Valor</th></tr>`
+    : `<tr style="background:#1e293b;color:#fff"><th colspan="3" style="padding:8px 10px;text-align:left;font-size:11px">Data</th><th style="padding:8px 10px;text-align:right;font-size:11px">Saldo do dia</th></tr>`;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Extrato Pirueta Ideias</title>
+  <style>body{font-family:system-ui,sans-serif;margin:0;padding:20px;color:#1e293b}@media print{@page{margin:15mm}}</style>
+  </head><body>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #6366f1">
+    <div><div style="font-size:20px;font-weight:700;color:#6366f1">Pirueta Ideias</div><div style="font-size:13px;color:#64748b">Extrato ${modo==="detalhado"?"Detalhado":"Resumido"} de Lançamentos</div></div>
+    <div style="font-size:12px;color:#94a3b8">Gerado em ${new Date().toLocaleDateString("pt-BR")}</div>
+  </div>
+  <table style="width:100%;border-collapse:collapse">${colunas}${linhas}</table>
+  <script>window.onload=()=>{window.print();}<\/script></body></html>`;
+
+  const w = window.open("","_blank","width=900,height=700");
+  w.document.write(html);
+  w.document.close();
+}
+
 function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, projetos, empresaId, userId, onRefresh, membro }) {
   const [filtro, setFiltro] = useState("todos");
   const [dataInicio, setDataInicio] = useState("");
@@ -1807,6 +1862,10 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
         <span style={{ color:"rgba(255,255,255,0.3)", fontSize:12 }}>até</span>
         <input type="date" value={dataFim} onChange={e=>setDataFim(e.target.value)} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"6px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <button onClick={()=>{setDataInicio(new Date().toISOString().slice(0,7)+"-01");setDataFim(new Date().toISOString().split("T")[0]);}} style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:8, padding:"6px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <div style={{ marginLeft:"auto", display:"flex", gap:6 }}>
+          <button onClick={()=>imprimirExtrato("resumido",porDia,categorias,clientes,projetos)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 12px", color:"rgba(255,255,255,0.6)", fontSize:11, cursor:"pointer" }}>🖨 Resumido</button>
+          <button onClick={()=>imprimirExtrato("detalhado",porDia,categorias,clientes,projetos)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"6px 12px", color:"rgba(255,255,255,0.6)", fontSize:11, cursor:"pointer" }}>🖨 Detalhado</button>
+        </div>
       </div>
 
       {/* Lista por dia */}
@@ -1850,31 +1909,30 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
                           {!l.impacta_dre&&<span style={{ color:"#f97316" }}>· fora da DRE</span>}
                         </div>
                       </div>
+                      {/* Anexos */}
+                      <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                        {l.nf_url && (
+                          <button onClick={()=>abrirPreview(l.nf_url, l.nf_nome||"Nota Fiscal", setPreview)}
+                            title="Ver Nota Fiscal"
+                            style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:6, color:"#818cf8", cursor:"pointer", fontSize:11, padding:"3px 8px" }}>
+                            📄 NF
+                          </button>
+                        )}
+                        {l.comprovante_url && (
+                          <button onClick={()=>abrirPreview(l.comprovante_url, l.comprovante_nome||"Comprovante", setPreview)}
+                            title="Ver Comprovante"
+                            style={{ background:"rgba(16,185,129,0.12)", border:"1px solid rgba(16,185,129,0.2)", borderRadius:6, color:"#34d399", cursor:"pointer", fontSize:11, padding:"3px 8px" }}>
+                            🧾 CP
+                          </button>
+                        )}
+                      </div>
                       {/* Valor */}
                       <div style={{ fontSize:14, fontWeight:700, color:l.tipo==="entrada"?"#818cf8":"#f87171", minWidth:90, textAlign:"right" }}>
                         {l.tipo==="entrada"?"+":"-"}{fmt(l.valor)}
                         {l.total_parcelas>1 && <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)", fontWeight:400 }}>{l.parcela_atual}/{l.total_parcelas}</div>}
                       </div>
-                      {/* Anexos */}
-                      {(l.nf_url||l.comprovante_url) && (
-                        <div style={{ display:"flex", gap:4, flexShrink:0 }}>
-                          {l.nf_url && (
-                            <button onClick={()=>abrirPreview(l.nf_url, l.nf_nome||"Nota Fiscal", setPreview)}
-                              title="Ver Nota Fiscal"
-                              style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:6, color:"#818cf8", cursor:"pointer", fontSize:11, padding:"3px 8px" }}>
-                              📄 NF
-                            </button>
-                          )}
-                          {l.comprovante_url && (
-                            <button onClick={()=>abrirPreview(l.comprovante_url, l.comprovante_nome||"Comprovante", setPreview)}
-                              title="Ver Comprovante"
-                              style={{ background:"rgba(16,185,129,0.12)", border:"1px solid rgba(16,185,129,0.2)", borderRadius:6, color:"#34d399", cursor:"pointer", fontSize:11, padding:"3px 8px" }}>
-                              🧾 CP
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      <div style={{ display:"flex", gap:4 }}>
+                      {/* Ações */}
+                      <div style={{ display:"flex", gap:4, flexShrink:0 }}>
                         {podeCriar && <button onClick={()=>abrirEditar(l)} title="Editar lançamento" style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:5, color:"#818cf8", cursor:"pointer", fontSize:10, padding:"2px 8px" }}>✏</button>}
                         {l.recorrencia_id && <button onClick={()=>excluirSerie(l.recorrencia_id)} title="Cancelar série futura" style={{ background:"rgba(251,191,36,0.1)", border:"1px solid rgba(251,191,36,0.2)", borderRadius:5, color:"#fbbf24", cursor:"pointer", fontSize:10, padding:"2px 6px" }}>⛔</button>}
                         {podeExcluir&&<button onClick={()=>excluir(l.id)} style={{ background:"rgba(239,68,68,0.12)", border:"none", borderRadius:6, color:"#f87171", cursor:"pointer", fontSize:12, padding:"3px 7px" }}>✕</button>}
