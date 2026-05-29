@@ -2384,10 +2384,16 @@ function Categorias({ categorias, subcategorias: subcatsProps, empresaId, onRefr
   const podeCriar = membro?.perfil !== "visualizador";
 
   const salvar = async () => {
-    if(!form.nome) return;
+    if(!form.nome) return alert("Preencha o nome da categoria.");
     setLoading(true);
-    try { await sb("categorias",{method:"POST",body:JSON.stringify({...form,empresa_id:empresaId})}); setModal(false);setForm({nome:"",grupo:"receita_operacional",cor:"#6366f1"});onRefresh(); }
-    catch(e){alert("Erro: "+e.message);}
+    try {
+      const res = await sb("categorias",{method:"POST",body:JSON.stringify({...form,ordem:0,empresa_id:empresaId})});
+      if(res && res[0]?.code) { alert("Erro Supabase: " + (res[0].message || JSON.stringify(res[0]))); setLoading(false); return; }
+      setModal(false);
+      setForm({nome:"",grupo:"receita_operacional",cor:"#6366f1"});
+      onRefresh();
+    }
+    catch(e){ alert("Erro ao salvar: " + (e.message || JSON.stringify(e))); }
     setLoading(false);
   };
   const excluir=async(id)=>{ if(!confirm("Excluir?"))return; await sb(`categorias?id=eq.${id}`,{method:"DELETE",prefer:""});onRefresh(); };
