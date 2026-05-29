@@ -1624,7 +1624,10 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
   const [nf, setNf] = useState(null);
   const [comp, setComp] = useState(null);
   const [diasAbertos, setDiasAbertos] = useState({});
-  const [preview, setPreview] = useState(null); // { url, nome, tipo }
+  const [preview, setPreview] = useState(null);
+  const [editando, setEditando] = useState(null); // lançamento sendo editado
+  const [nfEdit, setNfEdit] = useState(null);
+  const [compEdit, setCompEdit] = useState(null);
   const podeCriar = membro?.perfil !== "visualizador";
   const podeExcluir = membro?.perfil !== "visualizador";
 
@@ -1707,6 +1710,65 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
     const hoje2=new Date().toISOString().split("T")[0];
     await sb(`lancamentos?recorrencia_id=eq.${recorrencia_id}&data_competencia=gt.${hoje2}`,{method:"DELETE",prefer:""});
     onRefresh();
+  };
+
+  const abrirEditar = (l) => {
+    setEditando({
+      id: l.id,
+      descricao: l.descricao||"",
+      valor: String(l.valor||""),
+      tipo: l.tipo||"entrada",
+      tipo_lancamento: l.tipo_lancamento||"receita_operacional",
+      data_competencia: l.data_competencia||hoje,
+      data_pagamento: l.data_pagamento||"",
+      impacta_dre: l.impacta_dre!==false,
+      impacta_caixa: l.impacta_caixa!==false,
+      categoria_id: l.categoria_id||"",
+      conta_id: l.conta_id||"",
+      cliente_id: l.cliente_id||"",
+      fornecedor_id: l.fornecedor_id||"",
+      projeto_id: l.projeto_id||"",
+      valor_repasse: String(l.valor_repasse||"0"),
+      observacao: l.observacao||"",
+      nf_url: l.nf_url||null,
+      nf_nome: l.nf_nome||null,
+      comprovante_url: l.comprovante_url||null,
+      comprovante_nome: l.comprovante_nome||null,
+    });
+    setNfEdit(null);
+    setCompEdit(null);
+  };
+
+  const salvarEdicao = async () => {
+    if(!editando.descricao||!editando.valor) return alert("Preencha descrição e valor.");
+    setLoading(true);
+    try {
+      let nf_url=editando.nf_url, nf_nome=editando.nf_nome;
+      let comprovante_url=editando.comprovante_url, comprovante_nome=editando.comprovante_nome;
+      if(nfEdit){ const r=await uploadArquivo(nfEdit,userId); nf_url=r.url; nf_nome=r.nome; }
+      if(compEdit){ const r=await uploadArquivo(compEdit,userId); comprovante_url=r.url; comprovante_nome=r.nome; }
+      await sb(`lancamentos?id=eq.${editando.id}`, { method:"PATCH", body:JSON.stringify({
+        descricao: editando.descricao,
+        valor: Number(editando.valor),
+        tipo: editando.tipo,
+        tipo_lancamento: editando.tipo_lancamento,
+        data_competencia: editando.data_competencia,
+        data_pagamento: editando.data_pagamento||null,
+        impacta_dre: editando.impacta_dre,
+        impacta_caixa: editando.impacta_caixa,
+        categoria_id: editando.categoria_id||null,
+        conta_id: editando.conta_id||null,
+        cliente_id: editando.cliente_id||null,
+        fornecedor_id: editando.fornecedor_id||null,
+        projeto_id: editando.projeto_id||null,
+        valor_repasse: Number(editando.valor_repasse)||0,
+        observacao: editando.observacao||null,
+        nf_url, nf_nome, comprovante_url, comprovante_nome,
+      })});
+      setEditando(null); setNfEdit(null); setCompEdit(null);
+      onRefresh();
+    } catch(e){ alert("Erro: "+e.message); }
+    setLoading(false);
   };
 
   const CORES_GRUPO = { receita_operacional:"#818cf8", repasse_terceiros:"#f97316", despesa_operacional:"#34d399", imposto:"#f87171", taxa_bancaria:"#94a3b8", transferencia_interna:"#cbd5e1" };
@@ -1814,6 +1876,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
                         </div>
                       )}
                       <div className="del" style={{ display:"flex", gap:4, opacity:0, transition:"opacity 0.15s" }}>
+                        {podeCriar && <button onClick={()=>abrirEditar(l)} title="Editar lançamento" style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:5, color:"#818cf8", cursor:"pointer", fontSize:10, padding:"2px 8px" }}>✏</button>}
                         {l.recorrencia_id && <button onClick={()=>excluirSerie(l.recorrencia_id)} title="Cancelar série futura" style={{ background:"rgba(251,191,36,0.1)", border:"1px solid rgba(251,191,36,0.2)", borderRadius:5, color:"#fbbf24", cursor:"pointer", fontSize:10, padding:"2px 6px" }}>⛔</button>}
                         {podeExcluir&&<button onClick={()=>excluir(l.id)} style={{ background:"rgba(239,68,68,0.12)", border:"none", borderRadius:6, color:"#f87171", cursor:"pointer", fontSize:12, padding:"3px 7px" }}>✕</button>}
                       </div>
@@ -1976,11 +2039,80 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
           <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
         </Modal>
       )}
+
+      {/* Modal de edição de lançamento */}
+      {editando && (
+        <Modal titulo="Editar lançamento" onClose={()=>setEditando(null)}>
+          <Campo label="Descrição"><input style={inputStyle} value={editando.descricao} onChange={e=>setEditando({...editando,descricao:e.target.value})} /></Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Valor (R$)"><input style={inputStyle} type="number" step="0.01" value={editando.valor} onChange={e=>setEditando({...editando,valor:e.target.value})} /></Campo>
+            <Campo label="Data competência"><input style={inputStyle} type="date" value={editando.data_competencia} onChange={e=>setEditando({...editando,data_competencia:e.target.value})} /></Campo>
+          </div>
+          <Campo label="Tipo de lançamento">
+            <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+              {Object.entries(GRUPOS).map(([k,g])=>(
+                <button key={k} onClick={()=>setEditando({...editando,tipo_lancamento:k,tipo:g.tipo,impacta_dre:g.impactaDRE,categoria_id:""})}
+                  style={{ padding:"6px 10px", borderRadius:7, border:`1px solid ${editando.tipo_lancamento===k?g.cor:"rgba(255,255,255,0.08)"}`, background:editando.tipo_lancamento===k?g.cor+"22":"transparent", color:editando.tipo_lancamento===k?g.cor:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Categoria">
+              <select style={selectStyle} value={editando.categoria_id} onChange={e=>setEditando({...editando,categoria_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem categoria</option>
+                {categorias.filter(c=>c.grupo===editando.tipo_lancamento).map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Conta bancária">
+              <select style={selectStyle} value={editando.conta_id} onChange={e=>setEditando({...editando,conta_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem conta</option>
+                {contas.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Cliente">
+              <select style={selectStyle} value={editando.cliente_id} onChange={e=>setEditando({...editando,cliente_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem cliente</option>
+                {clientes.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Projeto">
+              <select style={selectStyle} value={editando.projeto_id} onChange={e=>setEditando({...editando,projeto_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem projeto</option>
+                {projetos.map(p=><option style={optionStyle} key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+          {["repasse_terceiros","despesa_operacional","taxa_bancaria","despesa_financeira"].includes(editando.tipo_lancamento) && (
+            <Campo label="Fornecedor">
+              <select style={selectStyle} value={editando.fornecedor_id} onChange={e=>setEditando({...editando,fornecedor_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem fornecedor</option>
+                {fornecedores.map(f=><option style={optionStyle} key={f.id} value={f.id}>{f.nome}</option>)}
+              </select>
+            </Campo>
+          )}
+          <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"none", height:55 }} value={editando.observacao} onChange={e=>setEditando({...editando,observacao:e.target.value})} /></Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="📄 Nota Fiscal">
+              <input type="file" accept="image/*,.pdf" onChange={e=>setNfEdit(e.target.files[0])} style={{ ...inputStyle, padding:"7px 10px", fontSize:12 }} />
+              {nfEdit && <div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {nfEdit.name.slice(0,20)}</div>}
+              {!nfEdit && editando.nf_url && <div style={{ fontSize:11, color:"#818cf8", marginTop:3 }}>📄 NF já anexada — subir novo substitui</div>}
+            </Campo>
+            <Campo label="🧾 Comprovante">
+              <input type="file" accept="image/*,.pdf" onChange={e=>setCompEdit(e.target.files[0])} style={{ ...inputStyle, padding:"7px 10px", fontSize:12 }} />
+              {compEdit && <div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {compEdit.name.slice(0,20)}</div>}
+              {!compEdit && editando.comprovante_url && <div style={{ fontSize:11, color:"#818cf8", marginTop:3 }}>🧾 Comprovante já anexado — subir novo substitui</div>}
+            </Campo>
+          </div>
+          <BtnRow onCancel={()=>setEditando(null)} onSave={salvarEdicao} loading={loading} />
+        </Modal>
+      )}
     </div>
   );
 }
-
-// ── DRE ────────────────────────────────────────────────────────────────────────
 function DRE({ lancamentos, categorias }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
