@@ -479,7 +479,7 @@ const GRUPOS = {
   despesa_operacional:  { label:"Despesa Operacional",    cor:"#10b981", impactaDRE:true,  tipo:"saida" },
   despesa_financeira:   { label:"Despesa Financeira",     cor:"#fbbf24", impactaDRE:true,  tipo:"saida" },
   imposto:              { label:"Imposto",                cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
-  taxa_bancaria:        { label:"Taxa Bancária",          cor:"#94a3b8", impactaDRE:false, tipo:"saida" },
+  taxa_bancaria:        { label:"Taxa Bancária",          cor:"#94a3b8", impactaDRE:true,  tipo:"saida" },
   transferencia_interna:{ label:"Transferência Interna",  cor:"#cbd5e1", impactaDRE:false, tipo:"saida" },
 };
 
