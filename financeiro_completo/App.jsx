@@ -33,7 +33,8 @@ const authFetch = async (endpoint, body) => {
 const fmt = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const CORES = ["#6366f1","#e07b54","#7b6cf0","#e0b454","#54b0e0","#34d399","#e054a0","#f87171","#a78bfa","#fbbf24"];
 const inputStyle = { width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" };
-const selectStyle = { ...inputStyle };
+const selectStyle = { ...inputStyle, background: "#1e1e2e", color: "#fff" };
+const optionStyle = { background: "#1e1e2e", color: "#fff" };
 
 // ── Login / Cadastro ───────────────────────────────────────────────────────────
 function LoginScreen({ onLogin }) {
@@ -440,24 +441,24 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <Campo label="Tipo de custo">
               <select style={selectStyle} value={form.tipo_custo} onChange={e=>setForm({...form,tipo_custo:e.target.value})}>
-                <option value="fixo">Custo Fixo</option>
-                <option value="variavel">Custo Variável</option>
-                <option value="investimento">Investimento</option>
-                <option value="outros">Outros</option>
+                <option style={optionStyle} value="fixo">Custo Fixo</option>
+                <option style={optionStyle} value="variavel">Custo Variável</option>
+                <option style={optionStyle} value="investimento">Investimento</option>
+                <option style={optionStyle} value="outros">Outros</option>
               </select>
             </Campo>
             <Campo label="Categoria">
               <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value,subcategoria_id:""})}>
-                <option value="">Sem categoria</option>
-                {categorias.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                <option style={optionStyle} value="">Sem categoria</option>
+                {categorias.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </Campo>
           </div>
           {form.categoria_id && subsDisponiveis.length>0 && (
             <Campo label="Subcategoria">
               <select style={selectStyle} value={form.subcategoria_id} onChange={e=>setForm({...form,subcategoria_id:e.target.value})}>
-                <option value="">Sem subcategoria</option>
-                {subsDisponiveis.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
+                <option style={optionStyle} value="">Sem subcategoria</option>
+                {subsDisponiveis.map(s=><option style={optionStyle} key={s.id} value={s.id}>{s.nome}</option>)}
               </select>
             </Campo>
           )}
@@ -595,7 +596,15 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
   const [modalLanc, setModalLanc] = useState(null);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({});
-  const [lançados, setLançados] = useState(new Set());
+  // Inicializa com fitids já lançados anteriormente (gravados no campo observacao)
+  const [lançados, setLançados] = useState(() => {
+    const s = new Set();
+    lancamentos.forEach(l => {
+      const m = l.observacao && l.observacao.match(/Importado OFX - (.+)/);
+      if(m) s.add(m[1].trim());
+    });
+    return s;
+  });
 
   const handleArquivo = (e) => {
     const arquivo = e.target.files[0];
@@ -614,14 +623,9 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
     reader.readAsText(arquivo, "latin1");
   };
 
-  // Verifica se uma transação já foi lançada (mesma data + valor aproximado)
-  const jaLancado = (tx) => {
-    return lancamentos.some(l =>
-      l.data_competencia === tx.data &&
-      Math.abs(Number(l.valor) - tx.valor) < 0.01 &&
-      l.tipo === tx.tipo
-    );
-  };
+  // Verifica se uma transação já foi lançada — usa FITID único para evitar
+  // falso-positivo em transações com mesmo valor (ex: dois funcionários com salário igual)
+  const jaLancado = (tx) => lançados.has(tx.fitid);
 
   const abrirLancar = (tx) => {
     setForm({
@@ -662,7 +666,8 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
       })});
       setLançados(prev => new Set([...prev, modalLanc.fitid]));
       setModalLanc(null);
-      onRefresh();
+      // NÃO chama onRefresh() aqui para manter o extrato OFX na tela.
+      // onRefresh() é chamado ao fechar o importador.
     } catch(e) { alert("Erro: " + e.message); }
     setLoading(false);
   };
@@ -685,7 +690,7 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
             <div style={{ fontSize:16, fontWeight:700, color:"#fff" }}>Importar Extrato OFX</div>
             <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:2 }}>Conta: {conta.nome} — {conta.banco}</div>
           </div>
-          <button onClick={onFechar} style={{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, padding:"6px 14px", color:"rgba(255,255,255,0.5)", cursor:"pointer" }}>✕ Fechar</button>
+          <button onClick={()=>{ onRefresh(); onFechar(); }} style={{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, padding:"6px 14px", color:"rgba(255,255,255,0.5)", cursor:"pointer" }}>✕ Fechar</button>
         </div>
 
         {/* Upload */}
@@ -800,22 +805,22 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
               <Campo label="Categoria">
                 <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value})}>
-                  <option value="">Selecione...</option>
-                  {catsFiltradas.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                  <option style={optionStyle} value="">Selecione...</option>
+                  {catsFiltradas.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
                 </select>
               </Campo>
               <Campo label="Cliente">
                 <select style={selectStyle} value={form.cliente_id} onChange={e=>setForm({...form,cliente_id:e.target.value})}>
-                  <option value="">Sem cliente</option>
-                  {clientes.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                  <option style={optionStyle} value="">Sem cliente</option>
+                  {clientes.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
                 </select>
               </Campo>
             </div>
 
             <Campo label="Projeto">
               <select style={selectStyle} value={form.projeto_id} onChange={e=>setForm({...form,projeto_id:e.target.value})}>
-                <option value="">Sem projeto</option>
-                {projetos.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}
+                <option style={optionStyle} value="">Sem projeto</option>
+                {projetos.map(p=><option style={optionStyle} key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             </Campo>
 
@@ -933,7 +938,7 @@ function Orcamento({ orcamento, lancamentos, categorias, empresaId, onRefresh, m
       })}
       {modal && (
         <Modal titulo="Definir limite" onClose={()=>setModal(false)}>
-          <Campo label="Categoria"><select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value})}><option value="">Selecione...</option>{categorias.filter(c=>c.tipo==="despesa").map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></Campo>
+          <Campo label="Categoria"><select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value})}><option style={optionStyle} value="">Selecione...</option>{categorias.filter(c=>c.tipo==="despesa").map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}</select></Campo>
           <Campo label="Limite (R$)"><input style={inputStyle} type="number" step="0.01" value={form.limite} onChange={e=>setForm({...form,limite:e.target.value})} /></Campo>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <Campo label="Mês"><input style={inputStyle} type="number" min="1" max="12" value={form.mes} onChange={e=>setForm({...form,mes:Number(e.target.value)})} /></Campo>
@@ -981,8 +986,8 @@ function Relatorios({ lancamentos, categorias }) {
         <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:6, padding:"6px 12px", color:"#818cf8", fontSize:12, cursor:"pointer" }}>Mês atual</button>
       </div>
       <div style={{ display:"flex", gap:10, marginBottom:20 }}>
-        <select style={{ ...selectStyle, width:"auto", minWidth:140 }} value={filtroTipo} onChange={e=>setFiltroTipo(e.target.value)}><option value="todos">Tipo: Todos</option><option value="receita">Receitas</option><option value="despesa">Despesas</option></select>
-        <select style={{ ...selectStyle, width:"auto", minWidth:140 }} value={filtroCat} onChange={e=>setFiltroCat(e.target.value)}><option value="">Categoria: Todas</option>{categorias.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+        <select style={{ ...selectStyle, width:"auto", minWidth:140 }} value={filtroTipo} onChange={e=>setFiltroTipo(e.target.value)}><option style={optionStyle} value="todos">Tipo: Todos</option><option style={optionStyle} value="receita">Receitas</option><option style={optionStyle} value="despesa">Despesas</option></select>
+        <select style={{ ...selectStyle, width:"auto", minWidth:140 }} value={filtroCat} onChange={e=>setFiltroCat(e.target.value)}><option style={optionStyle} value="">Categoria: Todas</option>{categorias.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}</select>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
         {[["Receitas",rec,"#34d399"],["Despesas",desp,"#f87171"],["Resultado",res,res>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(<div key={l} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px" }}><div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>{l}</div><div style={{ fontSize:20, fontWeight:600, color:c }}>{fmt(v)}</div></div>))}
@@ -1708,14 +1713,14 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <Campo label="Categoria">
               <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value})}>
-                <option value="">Selecione...</option>
-                {catsFiltradas.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                <option style={optionStyle} value="">Selecione...</option>
+                {catsFiltradas.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </Campo>
             <Campo label="Conta bancária">
               <select style={selectStyle} value={form.conta_id} onChange={e=>setForm({...form,conta_id:e.target.value})}>
-                <option value="">Sem conta</option>
-                {contas.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                <option style={optionStyle} value="">Sem conta</option>
+                {contas.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </Campo>
           </div>
@@ -1723,14 +1728,14 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <Campo label="Cliente">
               <select style={selectStyle} value={form.cliente_id} onChange={e=>setForm({...form,cliente_id:e.target.value})}>
-                <option value="">Sem cliente</option>
-                {clientes.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                <option style={optionStyle} value="">Sem cliente</option>
+                {clientes.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </Campo>
             <Campo label="Projeto / Campanha">
               <select style={selectStyle} value={form.projeto_id} onChange={e=>setForm({...form,projeto_id:e.target.value})}>
-                <option value="">Sem projeto</option>
-                {projetos.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}
+                <option style={optionStyle} value="">Sem projeto</option>
+                {projetos.map(p=><option style={optionStyle} key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             </Campo>
           </div>
@@ -1738,8 +1743,8 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
           {["repasse_terceiros","despesa_operacional"].includes(form.tipo_lancamento) && (
             <Campo label="Fornecedor">
               <select style={selectStyle} value={form.fornecedor_id} onChange={e=>setForm({...form,fornecedor_id:e.target.value})}>
-                <option value="">Sem fornecedor</option>
-                {fornecedores.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}
+                <option style={optionStyle} value="">Sem fornecedor</option>
+                {fornecedores.map(f=><option style={optionStyle} key={f.id} value={f.id}>{f.nome}</option>)}
               </select>
             </Campo>
           )}
@@ -2334,7 +2339,7 @@ function Projetos({ projetos, clientes, empresaId, onRefresh, membro }) {
       {modal && <Modal titulo="Novo projeto" onClose={()=>setModal(false)}>
         <Campo label="Nome do projeto / campanha"><input style={inputStyle} value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Campanha Verão SENAC 2026" /></Campo>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <Campo label="Cliente"><select style={selectStyle} value={form.cliente_id} onChange={e=>setForm({...form,cliente_id:e.target.value})}><option value="">Sem cliente</option>{clientes.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}</select></Campo>
+          <Campo label="Cliente"><select style={selectStyle} value={form.cliente_id} onChange={e=>setForm({...form,cliente_id:e.target.value})}><option style={optionStyle} value="">Sem cliente</option>{clientes.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}</select></Campo>
           <Campo label="Valor do contrato (R$)"><input style={inputStyle} type="number" step="0.01" value={form.valor_contrato} onChange={e=>setForm({...form,valor_contrato:e.target.value})} /></Campo>
         </div>
         <Campo label="Status">
