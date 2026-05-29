@@ -562,7 +562,20 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ nome:"", banco:"", saldo:"", cor:"#6366f1" });
-  const [ofxConta, setOfxConta] = useState(null); // conta selecionada para importar OFX
+  const [ofxConta, setOfxConta] = useState(null);
+  const [editSaldo, setEditSaldo] = useState(null); // { id, saldo } conta sendo editada
+  const [loadingSaldo, setLoadingSaldo] = useState(false);
+
+  const salvarSaldoInicial = async () => {
+    if(editSaldo.saldo === "") return alert("Digite um valor.");
+    setLoadingSaldo(true);
+    try {
+      await sb(`contas?id=eq.${editSaldo.id}`, { method:"PATCH", body:JSON.stringify({ saldo: Number(editSaldo.saldo) }) });
+      setEditSaldo(null);
+      onRefresh();
+    } catch(e) { alert("Erro: "+e.message); }
+    setLoadingSaldo(false);
+  };
   const total=contas.reduce((s,c)=>s+saldoDinamico(c),0);
   const podeExcluir=membro?.perfil!=="visualizador";
   const podeCriar=membro?.perfil!=="visualizador";
@@ -584,7 +597,11 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
             {membro?.perfil !== "visualizador" && <button onClick={()=>setOfxConta(c)} style={{ position:"absolute", top:12, right:44, background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:6, padding:"3px 8px", color:"#818cf8", fontSize:10, cursor:"pointer", fontWeight:600 }}>📂 OFX</button>}
             <div style={{ width:34, height:34, borderRadius:9, background:(c.cor||"#6366f1")+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, marginBottom:12 }}>💳</div>
             <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:4 }}>{c.banco}</div>
-            <div style={{ fontSize:20, fontWeight:600, color:"#fff", marginBottom:10 }}>{fmt(saldoDinamico(c))}</div>
+            <div style={{ fontSize:20, fontWeight:600, color:"#fff", marginBottom:6 }}>{fmt(saldoDinamico(c))}</div>
+            <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
+              Saldo inicial: {fmt(Number(c.saldo))}
+              {podeCriar && <button onClick={()=>setEditSaldo({id:c.id, saldo:c.saldo})} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:4, padding:"1px 6px", color:"#818cf8", fontSize:9, cursor:"pointer" }}>✏ editar</button>}
+            </div>
             <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
               <div style={{ width:`${total?(Math.min(saldoDinamico(c)/total,1)*100):0}%`, height:"100%", background:c.cor||"#6366f1", borderRadius:999 }} />
             </div>
@@ -599,6 +616,22 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
           <Campo label="Saldo inicial (R$)"><input style={inputStyle} type="number" step="0.01" value={form.saldo} onChange={e=>setForm({...form,saldo:e.target.value})} /></Campo>
           <Campo label="Cor"><div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>{CORES.map(cor=><div key={cor} onClick={()=>setForm({...form,cor})} style={{ width:28, height:28, borderRadius:"50%", background:cor, cursor:"pointer", border:form.cor===cor?"3px solid #fff":"2px solid transparent" }} />)}</div></Campo>
           <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
+        </Modal>
+      )}
+      {editSaldo && (
+        <Modal titulo="Editar saldo inicial" onClose={()=>setEditSaldo(null)}>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.45)", marginBottom:12, lineHeight:1.6 }}>
+            O <strong style={{color:"#fff"}}>saldo inicial</strong> é o valor que você tinha na conta <strong style={{color:"#fff"}}>antes</strong> de começar a lançar no sistema.<br/>
+            O saldo atual é calculado automaticamente: <em>saldo inicial + entradas − saídas</em>.
+          </div>
+          <Campo label="Saldo inicial (R$)">
+            <input style={inputStyle} type="number" step="0.01"
+              value={editSaldo.saldo}
+              onChange={e=>setEditSaldo({...editSaldo, saldo:e.target.value})}
+              autoFocus
+            />
+          </Campo>
+          <BtnRow onCancel={()=>setEditSaldo(null)} onSave={salvarSaldoInicial} loading={loadingSaldo} />
         </Modal>
       )}
       {ofxConta && (
