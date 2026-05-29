@@ -303,7 +303,11 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const hoje = new Date().toISOString().split("T")[0];
 
 
-  const [form, setForm] = useState({ descricao:"", valor:"", vencimento:"", categoria_id:"", subcategoria_id:"", tipo_custo:"variavel", recorrente:false, intervalo_meses:1, observacao:"" });
+  const [form, setForm] = useState({ descricao:"", valor:"", vencimento:"", categoria_id:"", subcategoria_id:"", tipo_custo:"variavel", observacao:"",
+    modo:"unico",        // "unico" | "parcelado" | "recorrente"
+    parcelas:2,          // para modo parcelado
+    recorrencia_meses:12 // para modo recorrente
+  });
   const podeExcluir = membro?.perfil !== "visualizador";
   const podeCriar = membro?.perfil !== "visualizador";
 
@@ -321,6 +325,12 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
 
   const marcarPago=async(id)=>{ if(!confirm("Marcar como paga?"))return; await sb(`contas_pagar?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({status:"pago",pago_em:hoje})}); carregar(); };
   const excluir=async(id)=>{ if(!confirm("Excluir?"))return; await sb(`contas_pagar?id=eq.${id}`,{method:"DELETE",prefer:""}); carregar(); };
+  const excluirGrupo=async(recorrencia_id)=>{
+    if(!confirm("Cancelar todos os lançamentos futuros desta recorrência?"))return;
+    const hoje2=new Date().toISOString().split("T")[0];
+    await sb(`contas_pagar?recorrencia_id=eq.${recorrencia_id}&vencimento=gt.${hoje2}&status=eq.aberto`,{method:"DELETE",prefer:""});
+    carregar();
+  };
 
   const salvar=async()=>{
     if(!form.descricao||!form.valor||!form.vencimento)return alert("Preencha descrição, valor e vencimento.");
@@ -329,9 +339,27 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
       let nf_url=null,nf_nome=null,comprovante_url=null,comprovante_nome=null;
       if(nf){const r=await uploadArquivo(nf,userId);nf_url=r.url;nf_nome=r.nome;}
       if(comp){const r=await uploadArquivo(comp,userId);comprovante_url=r.url;comprovante_nome=r.nome;}
-      await sb("contas_pagar",{method:"POST",body:JSON.stringify({...form,valor:Number(form.valor),empresa_id:empresaId,criado_por:userId,categoria_id:form.categoria_id||null,subcategoria_id:form.subcategoria_id||null,nf_url,nf_nome,comprovante_url,comprovante_nome})});
+      const base={empresa_id:empresaId,criado_por:userId,categoria_id:form.categoria_id||null,subcategoria_id:form.subcategoria_id||null,nf_url,nf_nome,comprovante_url,comprovante_nome,tipo_custo:form.tipo_custo,descricao:form.descricao,observacao:form.observacao};
+      const addMeses=(dataStr,n)=>{ const d=new Date(dataStr+"T12:00:00"); d.setMonth(d.getMonth()+n); return d.toISOString().split("T")[0]; };
+
+      if(form.modo==="unico"){
+        await sb("contas_pagar",{method:"POST",body:JSON.stringify({...base,valor:Number(form.valor),vencimento:form.vencimento,status:"aberto"})});
+      } else if(form.modo==="parcelado"){
+        const n=Number(form.parcelas)||2;
+        const valorParcela=Math.round((Number(form.valor)/n)*100)/100;
+        const rid=crypto.randomUUID();
+        for(let i=0;i<n;i++){
+          await sb("contas_pagar",{method:"POST",body:JSON.stringify({...base,valor:valorParcela,vencimento:addMeses(form.vencimento,i),status:"aberto",recorrencia_id:rid,parcela_atual:i+1,total_parcelas:n,descricao:`${form.descricao} (${i+1}/${n})`})});
+        }
+      } else if(form.modo==="recorrente"){
+        const n=Number(form.recorrencia_meses)||12;
+        const rid=crypto.randomUUID();
+        for(let i=0;i<n;i++){
+          await sb("contas_pagar",{method:"POST",body:JSON.stringify({...base,valor:Number(form.valor),vencimento:addMeses(form.vencimento,i),status:"aberto",recorrencia_id:rid,parcela_atual:i+1,total_parcelas:n})});
+        }
+      }
       setModal(false);setNf(null);setComp(null);
-      setForm({descricao:"",valor:"",vencimento:"",categoria_id:"",subcategoria_id:"",tipo_custo:"variavel",recorrente:false,intervalo_meses:1,observacao:""});
+      setForm({descricao:"",valor:"",vencimento:"",categoria_id:"",subcategoria_id:"",tipo_custo:"variavel",observacao:"",modo:"unico",parcelas:2,recorrencia_meses:12});
       carregar();
     }catch(e){alert("Erro: "+e.message);}
     setLoading(false);
@@ -409,7 +437,10 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
                   {st!=="pago" && podeCriar && (<button onClick={()=>marcarPago(c.id)} title="Marcar como pago" style={{ width:34, height:34, borderRadius:"50%", background:"#16a34a", border:"none", color:"#fff", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>💲</button>)}
                   {st==="pago" && <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(52,211,153,0.2)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:16 }}>✓</div>}
                   <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, color:"#fff", fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{c.descricao}</div>
+                    <div style={{ fontSize:13, color:"#fff", fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                      {c.descricao}
+                      {c.total_parcelas>1 && <span style={{ marginLeft:6, fontSize:10, background:"rgba(99,102,241,0.15)", color:"#818cf8", padding:"1px 6px", borderRadius:4 }}>{c.parcela_atual}/{c.total_parcelas}</span>}
+                    </div>
                     <div style={{ display:"flex", gap:6, marginTop:3, flexWrap:"wrap" }}>
                       <span style={{ fontSize:11, background:(tipoCor[c.tipo_custo]||"#6366f1")+"22", color:tipoCor[c.tipo_custo]||"#6366f1", padding:"1px 7px", borderRadius:4 }}>{tipoLabel[c.tipo_custo]}</span>
                       {cat && <span style={{ fontSize:11, background:(cat.cor||"#6366f1")+"22", color:cat.cor||"#6366f1", padding:"1px 7px", borderRadius:4 }}>{cat.nome}</span>}
@@ -421,7 +452,12 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
                     {c.comprovante_url && <button onClick={()=>verAnexo(c.comprovante_url,c.comprovante_nome||"Comp.",setPreview)} style={{ background:"rgba(52,211,153,0.12)", border:"1px solid rgba(52,211,153,0.3)", color:"#34d399", cursor:"pointer", fontSize:10, padding:"2px 8px", borderRadius:4 }}>🧾 Comp.</button>}
                   </div>
                   <div style={{ fontSize:15, fontWeight:600, color:st==="pago"?"#34d399":"#fff", minWidth:100, textAlign:"right" }}>{fmt(c.valor)}</div>
-                  {podeExcluir && <button onClick={()=>excluir(c.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
+                  <div style={{ display:"flex", gap:4, flexShrink:0 }}>
+                    {c.recorrencia_id && getStatus(c)!=="pago" && (
+                      <button onClick={()=>excluirGrupo(c.recorrencia_id)} title="Cancelar recorrência futura" style={{ background:"rgba(251,191,36,0.1)", border:"1px solid rgba(251,191,36,0.2)", borderRadius:5, color:"#fbbf24", cursor:"pointer", fontSize:10, padding:"2px 7px" }}>⛔ Cancelar série</button>
+                    )}
+                    {podeExcluir && <button onClick={()=>excluir(c.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
+                  </div>
                 </div>
               );
             })}
@@ -462,6 +498,37 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
               </select>
             </Campo>
           )}
+          {/* Modo: único / parcelado / recorrente */}
+          <Campo label="Tipo de lançamento">
+            <div style={{ display:"flex", gap:6 }}>
+              {[["unico","Único"],["parcelado","Parcelado"],["recorrente","Recorrente"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setForm({...form,modo:v})}
+                  style={{ flex:1, padding:"9px 6px", borderRadius:8, border:`1px solid ${form.modo===v?"#6366f1":"rgba(255,255,255,0.1)"}`, background:form.modo===v?"rgba(99,102,241,0.2)":"transparent", color:form.modo===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:12, cursor:"pointer", fontWeight:form.modo===v?600:400 }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </Campo>
+          {form.modo==="parcelado" && (
+            <Campo label="Número de parcelas">
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <input style={{ ...inputStyle, width:80 }} type="number" min="2" max="60" value={form.parcelas} onChange={e=>setForm({...form,parcelas:e.target.value})} />
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>
+                  {form.valor ? `${form.parcelas}x de ${fmt(Number(form.valor)/Number(form.parcelas))}` : `${form.parcelas} parcelas mensais`}
+                </div>
+              </div>
+            </Campo>
+          )}
+          {form.modo==="recorrente" && (
+            <Campo label="Duração (meses)">
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <input style={{ ...inputStyle, width:80 }} type="number" min="2" max="120" value={form.recorrencia_meses} onChange={e=>setForm({...form,recorrencia_meses:e.target.value})} />
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>
+                  {form.recorrencia_meses} meses de {form.valor ? fmt(Number(form.valor)) : "R$ --"}
+                </div>
+              </div>
+            </Campo>
+          )}
           <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"vertical", minHeight:50 }} value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} /></Campo>
           <Campo label="📄 Nota Fiscal"><input type="file" accept="image/*,.pdf" onChange={e=>setNf(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{nf&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {nf.name}</div>}</Campo>
           <Campo label="🧾 Comprovante"><input type="file" accept="image/*,.pdf" onChange={e=>setComp(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{comp&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {comp.name}</div>}</Campo>
@@ -475,7 +542,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
 // ── Grupos de lançamento ───────────────────────────────────────────────────────
 const GRUPOS = {
   receita_operacional:  { label:"Receita Operacional",    cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
-  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"saida"   },
+  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"entrada" },
   despesa_operacional:  { label:"Despesa Operacional",    cor:"#10b981", impactaDRE:true,  tipo:"saida" },
   despesa_financeira:   { label:"Despesa Financeira",     cor:"#fbbf24", impactaDRE:true,  tipo:"saida" },
   imposto:              { label:"Imposto",                cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
@@ -485,11 +552,18 @@ const GRUPOS = {
 
 // ── Contas Bancárias ───────────────────────────────────────────────────────────
 function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias, clientes, fornecedores, projetos, userId }) {
+  // Calcula saldo dinâmico: saldo_inicial + entradas - saídas por conta
+  const saldoDinamico = (conta) => {
+    const movs = lancamentos.filter(l => l.conta_id === conta.id && l.impacta_caixa);
+    const entradas = movs.filter(l => l.tipo === "entrada").reduce((s,l) => s + Number(l.valor), 0);
+    const saidas   = movs.filter(l => l.tipo === "saida").reduce((s,l) => s + Number(l.valor), 0);
+    return Number(conta.saldo) + entradas - saidas;
+  };
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ nome:"", banco:"", saldo:"", cor:"#6366f1" });
   const [ofxConta, setOfxConta] = useState(null); // conta selecionada para importar OFX
-  const total=contas.reduce((s,c)=>s+Number(c.saldo),0);
+  const total=contas.reduce((s,c)=>s+saldoDinamico(c),0);
   const podeExcluir=membro?.perfil!=="visualizador";
   const podeCriar=membro?.perfil!=="visualizador";
 
@@ -510,11 +584,11 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
             {membro?.perfil !== "visualizador" && <button onClick={()=>setOfxConta(c)} style={{ position:"absolute", top:12, right:44, background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:6, padding:"3px 8px", color:"#818cf8", fontSize:10, cursor:"pointer", fontWeight:600 }}>📂 OFX</button>}
             <div style={{ width:34, height:34, borderRadius:9, background:(c.cor||"#6366f1")+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, marginBottom:12 }}>💳</div>
             <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:4 }}>{c.banco}</div>
-            <div style={{ fontSize:20, fontWeight:600, color:"#fff", marginBottom:10 }}>{fmt(c.saldo)}</div>
+            <div style={{ fontSize:20, fontWeight:600, color:"#fff", marginBottom:10 }}>{fmt(saldoDinamico(c))}</div>
             <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
-              <div style={{ width:`${total?(Math.min(Number(c.saldo)/total,1)*100):0}%`, height:"100%", background:c.cor||"#6366f1", borderRadius:999 }} />
+              <div style={{ width:`${total?(Math.min(saldoDinamico(c)/total,1)*100):0}%`, height:"100%", background:c.cor||"#6366f1", borderRadius:999 }} />
             </div>
-            <div style={{ fontSize:11, color:"rgba(255,255,255,0.25)", marginTop:4 }}>{total?((Number(c.saldo)/total)*100).toFixed(1):0}% do total</div>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.25)", marginTop:4 }}>{total?((saldoDinamico(c)/total)*100).toFixed(1):0}% do total</div>
           </div>
         ))}
       </div>
@@ -1197,7 +1271,7 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
   const totalSaidas   = filtrados.filter(l=>l.tipo==="saida").reduce((s,l)=>s+Number(l.valor),0);
   const lucroOp = recOp - despOp;
   const margem  = recOp > 0 ? (lucroOp/recOp)*100 : 0;
-  const saldoCaixa = contas.reduce((s,c)=>s+Number(c.saldo),0);
+  const saldoCaixa = contas.reduce((s,c)=>{ const movs=lancamentos.filter(l=>l.conta_id===c.id&&l.impacta_caixa); const ent=movs.filter(l=>l.tipo==="entrada").reduce((a,l)=>a+Number(l.valor),0); const sai=movs.filter(l=>l.tipo==="saida").reduce((a,l)=>a+Number(l.valor),0); return s+Number(c.saldo)+ent-sai; },0);
 
   // Top clientes
   const topClientes = clientes.map(cl=>({
@@ -1471,7 +1545,9 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
     impacta_dre:true, impacta_caixa:true,
     categoria_id:"", conta_id:"", cliente_id:"",
     fornecedor_id:"", projeto_id:"",
-    valor_repasse:"0", observacao:""
+    valor_repasse:"0", observacao:"",
+    modo_lanc:"unico",       // "unico" | "recorrente"
+    recorrencia_meses:12
   });
 
   // Quando tipo_lancamento muda, atualiza tipo e impacta_dre automaticamente
@@ -1508,22 +1584,38 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
       let nf_url=null,nf_nome=null,comprovante_url=null,comprovante_nome=null;
       if(nf){const r=await uploadArquivo(nf,userId);nf_url=r.url;nf_nome=r.nome;}
       if(comp){const r=await uploadArquivo(comp,userId);comprovante_url=r.url;comprovante_nome=r.nome;}
-      await sb("lancamentos",{method:"POST",body:JSON.stringify({
+      const addMeses=(dataStr,n)=>{ const d=new Date(dataStr+"T12:00:00"); d.setMonth(d.getMonth()+n); return d.toISOString().split("T")[0]; };
+      const base={
         ...form, valor:Number(form.valor), valor_repasse:Number(form.valor_repasse)||0,
         empresa_id:empresaId, criado_por:userId,
         categoria_id:form.categoria_id||null, conta_id:form.conta_id||null,
         cliente_id:form.cliente_id||null, fornecedor_id:form.fornecedor_id||null,
         projeto_id:form.projeto_id||null, data_pagamento:form.data_pagamento||null,
         nf_url,nf_nome,comprovante_url,comprovante_nome
-      })});
+      };
+      if(form.modo_lanc==="recorrente"){
+        const n=Number(form.recorrencia_meses)||12;
+        const rid=crypto.randomUUID();
+        for(let i=0;i<n;i++){
+          await sb("lancamentos",{method:"POST",body:JSON.stringify({...base, data_competencia:addMeses(form.data_competencia,i), recorrencia_id:rid, parcela_atual:i+1, total_parcelas:n})});
+        }
+      } else {
+        await sb("lancamentos",{method:"POST",body:JSON.stringify(base)});
+      }
       setModal(false); setNf(null); setComp(null);
-      setForm({descricao:"",valor:"",tipo:"entrada",tipo_lancamento:"receita_operacional",data_competencia:hoje,data_pagamento:"",impacta_dre:true,impacta_caixa:true,categoria_id:"",conta_id:"",cliente_id:"",fornecedor_id:"",projeto_id:"",valor_repasse:"0",observacao:""});
+      setForm({descricao:"",valor:"",tipo:"entrada",tipo_lancamento:"receita_operacional",data_competencia:hoje,data_pagamento:"",impacta_dre:true,impacta_caixa:true,categoria_id:"",conta_id:"",cliente_id:"",fornecedor_id:"",projeto_id:"",valor_repasse:"0",observacao:"",modo_lanc:"unico",recorrencia_meses:12});
       onRefresh();
     } catch(e){alert("Erro: "+e.message);}
     setLoading(false);
   };
 
   const excluir = async (id) => { if(!confirm("Excluir?"))return; await sb(`lancamentos?id=eq.${id}`,{method:"DELETE",prefer:""}); onRefresh(); };
+  const excluirSerie = async (recorrencia_id) => {
+    if(!confirm("Cancelar todos os lançamentos futuros desta recorrência?"))return;
+    const hoje2=new Date().toISOString().split("T")[0];
+    await sb(`lancamentos?recorrencia_id=eq.${recorrencia_id}&data_competencia=gt.${hoje2}`,{method:"DELETE",prefer:""});
+    onRefresh();
+  };
 
   const CORES_GRUPO = { receita_operacional:"#818cf8", repasse_terceiros:"#f97316", despesa_operacional:"#34d399", imposto:"#f87171", taxa_bancaria:"#94a3b8", transferencia_interna:"#cbd5e1" };
   const meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
@@ -1542,7 +1634,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
 
       {/* KPIs compactos */}
       <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
-        {[["Receita Operacional",totais.recOp,"#818cf8"],["Repasse Terceiros",-totais.repasse,"#f97316"],["Despesas",-totais.desp,"#f87171"],["Lucro",totais.recOp-totais.desp-totais.repasse,(totais.recOp-totais.desp-totais.repasse)>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
+        {[["Receita Operacional",totais.recOp,"#818cf8"],["Repasse Terceiros",totais.repasse,"#f97316"],["Despesas",totais.desp,"#f87171"],["Lucro",totais.recOp-totais.desp,(totais.recOp-totais.desp)>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
           <div key={l} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"8px 14px" }}>
             <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>{l}</div>
             <div style={{ fontSize:14, fontWeight:700, color:c }}>{fmt(v)}</div>
@@ -1608,6 +1700,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
                       {/* Valor */}
                       <div style={{ fontSize:14, fontWeight:700, color:l.tipo==="entrada"?"#818cf8":"#f87171", minWidth:90, textAlign:"right" }}>
                         {l.tipo==="entrada"?"+":"-"}{fmt(l.valor)}
+                        {l.total_parcelas>1 && <div style={{ fontSize:9, color:"rgba(255,255,255,0.3)", fontWeight:400 }}>{l.parcela_atual}/{l.total_parcelas}</div>}
                       </div>
                       {/* Anexos */}
                       {(l.nf_url||l.comprovante_url) && (
@@ -1628,7 +1721,10 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
                           )}
                         </div>
                       )}
-                      {podeExcluir&&<button className="del" onClick={()=>excluir(l.id)} style={{ background:"rgba(239,68,68,0.12)", border:"none", borderRadius:6, color:"#f87171", cursor:"pointer", fontSize:12, padding:"3px 7px", opacity:0, transition:"opacity 0.15s" }}>✕</button>}
+                      <div className="del" style={{ display:"flex", gap:4, opacity:0, transition:"opacity 0.15s" }}>
+                        {l.recorrencia_id && <button onClick={()=>excluirSerie(l.recorrencia_id)} title="Cancelar série futura" style={{ background:"rgba(251,191,36,0.1)", border:"1px solid rgba(251,191,36,0.2)", borderRadius:5, color:"#fbbf24", cursor:"pointer", fontSize:10, padding:"2px 6px" }}>⛔</button>}
+                        {podeExcluir&&<button onClick={()=>excluir(l.id)} style={{ background:"rgba(239,68,68,0.12)", border:"none", borderRadius:6, color:"#f87171", cursor:"pointer", fontSize:12, padding:"3px 7px" }}>✕</button>}
+                      </div>
                     </div>
                   );
                 })}
@@ -1759,6 +1855,28 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
           </div>
 
           <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"none", height:55 }} value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} /></Campo>
+
+          {/* Recorrência */}
+          <Campo label="Recorrência">
+            <div style={{ display:"flex", gap:6 }}>
+              {[["unico","Lançamento único"],["recorrente","Recorrente"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setForm({...form,modo_lanc:v})}
+                  style={{ flex:1, padding:"9px 6px", borderRadius:8, border:`1px solid ${form.modo_lanc===v?"#6366f1":"rgba(255,255,255,0.1)"}`, background:form.modo_lanc===v?"rgba(99,102,241,0.2)":"transparent", color:form.modo_lanc===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:12, cursor:"pointer", fontWeight:form.modo_lanc===v?600:400 }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </Campo>
+          {form.modo_lanc==="recorrente" && (
+            <Campo label="Duração (meses)">
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <input style={{ ...inputStyle, width:80 }} type="number" min="2" max="120" value={form.recorrencia_meses} onChange={e=>setForm({...form,recorrencia_meses:e.target.value})} />
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>
+                  {form.recorrencia_meses} meses de {form.valor ? fmt(Number(form.valor)) : "R$ --"}
+                </div>
+              </div>
+            </Campo>
+          )}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <Campo label="📄 Nota Fiscal"><input type="file" accept="image/*,.pdf" onChange={e=>setNf(e.target.files[0])} style={{ ...inputStyle, padding:"7px 10px", fontSize:12 }} />{nf&&<div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {nf.name.slice(0,20)}</div>}</Campo>
             <Campo label="🧾 Comprovante"><input type="file" accept="image/*,.pdf" onChange={e=>setComp(e.target.files[0])} style={{ ...inputStyle, padding:"7px 10px", fontSize:12 }} />{comp&&<div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {comp.name.slice(0,20)}</div>}</Campo>
