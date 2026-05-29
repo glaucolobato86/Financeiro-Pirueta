@@ -1835,8 +1835,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
                   const corGrupo=CORES_GRUPO[l.tipo_lancamento]||"#6366f1";
                   return (
                     <div key={l.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 16px", borderBottom:i<itens.length-1?"1px solid rgba(255,255,255,0.04)":"none" }}
-                      onMouseEnter={e=>{if(podeExcluir)e.currentTarget.querySelector(".del")?.style&&(e.currentTarget.querySelector(".del").style.opacity="1");}}
-                      onMouseLeave={e=>{if(podeExcluir)e.currentTarget.querySelector(".del")?.style&&(e.currentTarget.querySelector(".del").style.opacity="0");}}>
+>
                       {/* Badge tipo */}
                       <div style={{ background:corGrupo+"22", border:`1px solid ${corGrupo}44`, borderRadius:6, padding:"2px 8px", fontSize:10, color:corGrupo, fontWeight:600, whiteSpace:"nowrap", flexShrink:0 }}>
                         {GRUPOS[l.tipo_lancamento]?.label||l.tipo_lancamento}
@@ -1875,7 +1874,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
                           )}
                         </div>
                       )}
-                      <div className="del" style={{ display:"flex", gap:4, opacity:0, transition:"opacity 0.15s" }}>
+                      <div style={{ display:"flex", gap:4 }}>
                         {podeCriar && <button onClick={()=>abrirEditar(l)} title="Editar lançamento" style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:5, color:"#818cf8", cursor:"pointer", fontSize:10, padding:"2px 8px" }}>✏</button>}
                         {l.recorrencia_id && <button onClick={()=>excluirSerie(l.recorrencia_id)} title="Cancelar série futura" style={{ background:"rgba(251,191,36,0.1)", border:"1px solid rgba(251,191,36,0.2)", borderRadius:5, color:"#fbbf24", cursor:"pointer", fontSize:10, padding:"2px 6px" }}>⛔</button>}
                         {podeExcluir&&<button onClick={()=>excluir(l.id)} style={{ background:"rgba(239,68,68,0.12)", border:"none", borderRadius:6, color:"#f87171", cursor:"pointer", fontSize:12, padding:"3px 7px" }}>✕</button>}
