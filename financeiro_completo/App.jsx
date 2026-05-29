@@ -472,10 +472,11 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
 }
 
 // ── Contas Bancárias ───────────────────────────────────────────────────────────
-function Contas({ contas, empresaId, onRefresh, membro }) {
+function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias, clientes, fornecedores, projetos, userId }) {
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ nome:"", banco:"", saldo:"", cor:"#6366f1" });
+  const [ofxConta, setOfxConta] = useState(null); // conta selecionada para importar OFX
   const total=contas.reduce((s,c)=>s+Number(c.saldo),0);
   const podeExcluir=membro?.perfil!=="visualizador";
   const podeCriar=membro?.perfil!=="visualizador";
@@ -494,6 +495,7 @@ function Contas({ contas, empresaId, onRefresh, membro }) {
         {contas.map(c=>(
           <div key={c.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18, position:"relative" }}>
             {podeExcluir && <button onClick={()=>excluir(c.id)} style={{ position:"absolute", top:12, right:12, background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
+            {membro?.perfil !== "visualizador" && <button onClick={()=>setOfxConta(c)} style={{ position:"absolute", top:12, right:44, background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:6, padding:"3px 8px", color:"#818cf8", fontSize:10, cursor:"pointer", fontWeight:600 }}>📂 OFX</button>}
             <div style={{ width:34, height:34, borderRadius:9, background:(c.cor||"#6366f1")+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, marginBottom:12 }}>💳</div>
             <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:4 }}>{c.banco}</div>
             <div style={{ fontSize:20, fontWeight:600, color:"#fff", marginBottom:10 }}>{fmt(c.saldo)}</div>
@@ -512,6 +514,293 @@ function Contas({ contas, empresaId, onRefresh, membro }) {
           <Campo label="Cor"><div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>{CORES.map(cor=><div key={cor} onClick={()=>setForm({...form,cor})} style={{ width:28, height:28, borderRadius:"50%", background:cor, cursor:"pointer", border:form.cor===cor?"3px solid #fff":"2px solid transparent" }} />)}</div></Campo>
           <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
         </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── Parser OFX Itaú ───────────────────────────────────────────────────────────
+function parseOFX(texto) {
+  // Normaliza encoding comum do Itaú
+  const t = texto.replace(/
+/g,"
+").replace(/
+/g,"
+");
+
+  // Extrai todas as transações STMTTRN
+  const transacoes = [];
+  const regex = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
+  let match;
+
+  while ((match = regex.exec(t)) !== null) {
+    const bloco = match[1];
+    const get = (tag) => {
+      const m = new RegExp(`<${tag}>([^<\n]+)`).exec(bloco);
+      return m ? m[1].trim() : "";
+    };
+
+    const tipo  = get("TRNTYPE"); // DEBIT ou CREDIT
+    const dtStr = get("DTPOSTED"); // ex: 20260515
+    const valor = parseFloat(get("TRNAMT").replace(",","."));
+    const memo  = get("MEMO") || get("NAME") || "Sem descrição";
+    const fitid = get("FITID");
+
+    if(!dtStr || isNaN(valor)) continue;
+
+    // Formata data para YYYY-MM-DD
+    const ano  = dtStr.slice(0,4);
+    const mes  = dtStr.slice(4,6);
+    const dia  = dtStr.slice(6,8);
+    const data = `${ano}-${mes}-${dia}`;
+
+    transacoes.push({
+      fitid,
+      tipo: valor >= 0 ? "entrada" : "saida",
+      valor: Math.abs(valor),
+      data,
+      memo: memo.replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">"),
+      raw_tipo: tipo,
+    });
+  }
+
+  return transacoes.sort((a,b) => new Date(a.data) - new Date(b.data));
+}
+
+// ── Importador OFX ─────────────────────────────────────────────────────────────
+function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores, projetos, empresaId, userId, onRefresh, onFechar }) {
+  const [transacoes, setTransacoes] = useState([]);
+  const [processando, setProcessando] = useState(false);
+  const [modalLanc, setModalLanc] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({});
+  const [lançados, setLançados] = useState(new Set());
+
+  const handleArquivo = (e) => {
+    const arquivo = e.target.files[0];
+    if(!arquivo) return;
+    setProcessando(true);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const txs = parseOFX(ev.target.result);
+        setTransacoes(txs);
+      } catch(err) {
+        alert("Erro ao ler OFX: " + err.message);
+      }
+      setProcessando(false);
+    };
+    reader.readAsText(arquivo, "latin1");
+  };
+
+  // Verifica se uma transação já foi lançada (mesma data + valor aproximado)
+  const jaLancado = (tx) => {
+    return lancamentos.some(l =>
+      l.data_competencia === tx.data &&
+      Math.abs(Number(l.valor) - tx.valor) < 0.01 &&
+      l.tipo === tx.tipo
+    );
+  };
+
+  const abrirLancar = (tx) => {
+    setForm({
+      descricao: tx.memo,
+      valor: tx.valor.toFixed(2),
+      tipo: tx.tipo,
+      tipo_lancamento: tx.tipo === "entrada" ? "receita_operacional" : "despesa_operacional",
+      data_competencia: tx.data,
+      data_pagamento: tx.data,
+      impacta_dre: true,
+      impacta_caixa: true,
+      categoria_id: "",
+      conta_id: conta.id,
+      cliente_id: "",
+      fornecedor_id: "",
+      projeto_id: "",
+      valor_repasse: "0",
+      observacao: `Importado OFX - ${tx.fitid}`,
+    });
+    setModalLanc(tx);
+  };
+
+  const salvarLanc = async () => {
+    if(!form.descricao || !form.valor) return;
+    setLoading(true);
+    try {
+      await sb("lancamentos", { method:"POST", body: JSON.stringify({
+        ...form,
+        valor: Number(form.valor),
+        valor_repasse: 0,
+        empresa_id: empresaId,
+        criado_por: userId,
+        categoria_id: form.categoria_id || null,
+        cliente_id: form.cliente_id || null,
+        fornecedor_id: form.fornecedor_id || null,
+        projeto_id: form.projeto_id || null,
+        data_pagamento: form.data_pagamento || null,
+      })});
+      setLançados(prev => new Set([...prev, modalLanc.fitid]));
+      setModalLanc(null);
+      onRefresh();
+    } catch(e) { alert("Erro: " + e.message); }
+    setLoading(false);
+  };
+
+  const setTipoLanc = (tl) => {
+    const g = GRUPOS[tl];
+    setForm(f => ({...f, tipo_lancamento: tl, tipo: g?.tipo || f.tipo, impacta_dre: g?.impactaDRE ?? true, categoria_id: ""}));
+  };
+
+  const catsFiltradas = categorias.filter(c => c.grupo === form.tipo_lancamento);
+  const jaMarcados = transacoes.filter(tx => jaLancado(tx) || lançados.has(tx.fitid)).length;
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+      <div style={{ background:"#13131a", border:"1px solid rgba(255,255,255,0.1)", borderRadius:18, width:"100%", maxWidth:820, maxHeight:"90vh", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+
+        {/* Header */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 24px", borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
+          <div>
+            <div style={{ fontSize:16, fontWeight:700, color:"#fff" }}>Importar Extrato OFX</div>
+            <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:2 }}>Conta: {conta.nome} — {conta.banco}</div>
+          </div>
+          <button onClick={onFechar} style={{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, padding:"6px 14px", color:"rgba(255,255,255,0.5)", cursor:"pointer" }}>✕ Fechar</button>
+        </div>
+
+        {/* Upload */}
+        <div style={{ padding:"16px 24px", borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
+          {transacoes.length === 0 ? (
+            <label style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", border:"2px dashed rgba(99,102,241,0.3)", borderRadius:12, padding:"28px 20px", cursor:"pointer", background:"rgba(99,102,241,0.05)" }}>
+              <div style={{ fontSize:28, marginBottom:8 }}>📂</div>
+              <div style={{ fontSize:14, color:"#818cf8", fontWeight:600, marginBottom:4 }}>Clique para selecionar o arquivo OFX</div>
+              <div style={{ fontSize:12, color:"rgba(255,255,255,0.3)" }}>Exporte o extrato do Itaú Internet Banking → formato OFX</div>
+              <input type="file" accept=".ofx,.OFX" onChange={handleArquivo} style={{ display:"none" }} />
+            </label>
+          ) : (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div style={{ display:"flex", gap:16 }}>
+                <div style={{ background:"rgba(99,102,241,0.12)", borderRadius:8, padding:"8px 14px" }}>
+                  <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>TOTAL</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:"#818cf8" }}>{transacoes.length} transações</div>
+                </div>
+                <div style={{ background:"rgba(52,211,153,0.1)", borderRadius:8, padding:"8px 14px" }}>
+                  <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>JÁ LANÇADOS</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:"#34d399" }}>{jaMarcados}</div>
+                </div>
+                <div style={{ background:"rgba(251,191,36,0.1)", borderRadius:8, padding:"8px 14px" }}>
+                  <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>PENDENTES</div>
+                  <div style={{ fontSize:16, fontWeight:700, color:"#fbbf24" }}>{transacoes.length - jaMarcados}</div>
+                </div>
+              </div>
+              <label style={{ background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"7px 14px", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontSize:12 }}>
+                📂 Trocar arquivo
+                <input type="file" accept=".ofx,.OFX" onChange={handleArquivo} style={{ display:"none" }} />
+              </label>
+            </div>
+          )}
+          {processando && <div style={{ textAlign:"center", padding:16, color:"rgba(255,255,255,0.4)", fontSize:13 }}>Lendo arquivo...</div>}
+        </div>
+
+        {/* Lista de transações */}
+        {transacoes.length > 0 && (
+          <div style={{ flex:1, overflowY:"auto" }}>
+            <table style={{ width:"100%", borderCollapse:"collapse" }}>
+              <thead>
+                <tr style={{ borderBottom:"1px solid rgba(255,255,255,0.07)" }}>
+                  {["Data","Descrição","Valor","Status",""].map(h=>(
+                    <th key={h} style={{ padding:"10px 16px", textAlign:"left", fontSize:10, color:"rgba(255,255,255,0.35)", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.07em" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {transacoes.map((tx, i) => {
+                  const lancado = jaLancado(tx) || lançados.has(tx.fitid);
+                  return (
+                    <tr key={tx.fitid+i} style={{ borderBottom:"1px solid rgba(255,255,255,0.03)", background: lancado ? "rgba(52,211,153,0.03)" : "transparent" }}>
+                      <td style={{ padding:"10px 16px", fontSize:12, color:"rgba(255,255,255,0.5)", whiteSpace:"nowrap" }}>{tx.data.split("-").reverse().join("/")}</td>
+                      <td style={{ padding:"10px 16px", fontSize:12, color:"rgba(255,255,255,0.85)", maxWidth:280, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{tx.memo}</td>
+                      <td style={{ padding:"10px 16px", fontSize:13, fontWeight:600, color: tx.tipo==="entrada"?"#818cf8":"#f87171", whiteSpace:"nowrap" }}>
+                        {tx.tipo==="entrada"?"+":"-"}{fmt(tx.valor)}
+                      </td>
+                      <td style={{ padding:"10px 16px" }}>
+                        {lancado ? (
+                          <span style={{ background:"rgba(52,211,153,0.12)", color:"#34d399", borderRadius:6, padding:"3px 9px", fontSize:11, fontWeight:600 }}>✓ Lançado</span>
+                        ) : (
+                          <span style={{ background:"rgba(251,191,36,0.12)", color:"#fbbf24", borderRadius:6, padding:"3px 9px", fontSize:11, fontWeight:600 }}>⚠ Pendente</span>
+                        )}
+                      </td>
+                      <td style={{ padding:"10px 16px" }}>
+                        {!lancado && (
+                          <button onClick={()=>abrirLancar(tx)}
+                            style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:12, cursor:"pointer", fontWeight:500 }}>
+                            + Lançar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal de lançamento */}
+      {modalLanc && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }} onClick={()=>setModalLanc(null)}>
+          <div onClick={e=>e.stopPropagation()} style={{ background:"#13131a", border:"1px solid rgba(255,255,255,0.12)", borderRadius:18, padding:28, width:500, maxHeight:"90vh", overflowY:"auto" }}>
+            <div style={{ fontSize:16, fontWeight:700, color:"#fff", marginBottom:4 }}>Lançar transação</div>
+            <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:18 }}>{modalLanc.memo}</div>
+
+            <Campo label="Tipo de lançamento">
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+                {Object.entries(GRUPOS).filter(([k])=>k!=="transferencia_interna").map(([k,g])=>(
+                  <button key={k} onClick={()=>setTipoLanc(k)} style={{ padding:"7px 6px", borderRadius:8, border:`1px solid ${form.tipo_lancamento===k?g.cor:"rgba(255,255,255,0.08)"}`, background:form.tipo_lancamento===k?g.cor+"22":"transparent", color:form.tipo_lancamento===k?g.cor:"rgba(255,255,255,0.4)", fontSize:10, cursor:"pointer", fontWeight:form.tipo_lancamento===k?600:400, textAlign:"center", lineHeight:1.3 }}>
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </Campo>
+
+            <Campo label="Descrição">
+              <input style={inputStyle} value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} />
+            </Campo>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <Campo label="Valor (R$)">
+                <input style={inputStyle} type="number" value={form.valor} onChange={e=>setForm({...form,valor:e.target.value})} />
+              </Campo>
+              <Campo label="Data competência">
+                <input style={inputStyle} type="date" value={form.data_competencia} onChange={e=>setForm({...form,data_competencia:e.target.value})} />
+              </Campo>
+            </div>
+
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <Campo label="Categoria">
+                <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value})}>
+                  <option value="">Selecione...</option>
+                  {catsFiltradas.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </Campo>
+              <Campo label="Cliente">
+                <select style={selectStyle} value={form.cliente_id} onChange={e=>setForm({...form,cliente_id:e.target.value})}>
+                  <option value="">Sem cliente</option>
+                  {clientes.map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </Campo>
+            </div>
+
+            <Campo label="Projeto">
+              <select style={selectStyle} value={form.projeto_id} onChange={e=>setForm({...form,projeto_id:e.target.value})}>
+                <option value="">Sem projeto</option>
+                {projetos.map(p=><option key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </Campo>
+
+            <BtnRow onCancel={()=>setModalLanc(null)} onSave={salvarLanc} loading={loading} />
+          </div>
+        </div>
       )}
     </div>
   );
@@ -2264,7 +2553,7 @@ export default function App() {
               {tela==="clientes"     && <Clientes clientes={dados.clientes} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
               {tela==="fornecedores" && <Fornecedores fornecedores={dados.fornecedores} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
               {tela==="projetos"     && <Projetos projetos={dados.projetos} clientes={dados.clientes} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
-              {tela==="contas"       && <Contas contas={dados.contas} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
+              {tela==="contas"       && <Contas contas={dados.contas} empresaId={empresa.id} onRefresh={carregar} membro={membro} lancamentos={dados.lancamentos} categorias={dados.categorias} clientes={dados.clientes} fornecedores={dados.fornecedores} projetos={dados.projetos} userId={user.id} />}
               
               
               {tela==="relatorios"    && <Relatorios {...props} />}
