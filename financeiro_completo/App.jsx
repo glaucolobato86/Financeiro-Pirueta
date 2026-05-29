@@ -839,12 +839,28 @@ function Usuarios({ empresa, userId }) {
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const GRUPOS = {
-  receita_operacional:  { label:"Receita Operacional",  cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
+  receita_operacional:  { label:"Receita Operacional",    cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
   repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"entrada" },
-  despesa_operacional:  { label:"Despesa Operacional",  cor:"#10b981", impactaDRE:true,  tipo:"saida" },
-  imposto:              { label:"Imposto",              cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
-  taxa_bancaria:        { label:"Taxa Bancária",        cor:"#94a3b8", impactaDRE:false, tipo:"saida" },
-  transferencia_interna:{ label:"Transferência Interna",cor:"#cbd5e1", impactaDRE:false, tipo:"saida" },
+  despesa_operacional:  { label:"Despesa Operacional",    cor:"#10b981", impactaDRE:true,  tipo:"saida" },
+  despesa_financeira:   { label:"Despesa Financeira",     cor:"#fbbf24", impactaDRE:true,  tipo:"saida" },
+  imposto:              { label:"Imposto",                cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
+  taxa_bancaria:        { label:"Taxa Bancária",          cor:"#94a3b8", impactaDRE:false, tipo:"saida" },
+  transferencia_interna:{ label:"Transferência Interna",  cor:"#cbd5e1", impactaDRE:false, tipo:"saida" },
+};
+
+const SUBGRUPOS = {
+  pessoal:        "Pessoal",
+  estrutura:      "Estrutura",
+  tecnologia:     "Tecnologia",
+  marketing:      "Marketing",
+  comercial:      "Comercial",
+  administrativo: "Administrativo",
+  tarifas:        "Tarifas Bancárias",
+  juros:          "Juros e Encargos",
+  antecipacao:    "Antecipação",
+  servicos:       "Serviços",
+  producao:       "Produção",
+  tributos:       "Tributos",
 };
 
 const fmtPct = (v) => `${Number(v).toFixed(1)}%`;
@@ -865,8 +881,12 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
   // KPIs principais
   const recOp   = filtrados.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0);
   const repasse  = filtrados.filter(l=>l.tipo_lancamento==="repasse_terceiros").reduce((s,l)=>s+Number(l.valor),0);
-  const despOp   = filtrados.filter(l=>["despesa_operacional","imposto"].includes(l.tipo_lancamento)).reduce((s,l)=>s+Number(l.valor),0);
+  const despOp   = filtrados.filter(l=>l.tipo_lancamento==="despesa_operacional").reduce((s,l)=>s+Number(l.valor),0);
   const impostos = filtrados.filter(l=>l.tipo_lancamento==="imposto").reduce((s,l)=>s+Number(l.valor),0);
+  const despFin  = filtrados.filter(l=>["despesa_financeira","taxa_bancaria"].includes(l.tipo_lancamento)).reduce((s,l)=>s+Number(l.valor),0);
+  const lucroLiq = recOp - despOp - despFin;
+  const pctFin   = recOp > 0 ? (despFin/recOp)*100 : 0;
+  const margemLiq = recOp > 0 ? (lucroLiq/recOp)*100 : 0;
   const totalEntradas = filtrados.filter(l=>l.tipo==="entrada").reduce((s,l)=>s+Number(l.valor),0);
   const totalSaidas   = filtrados.filter(l=>l.tipo==="saida").reduce((s,l)=>s+Number(l.valor),0);
   const lucroOp = recOp - despOp;
@@ -948,16 +968,16 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
 
       {/* Cards principais */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:12 }}>
-        {card("Receita Operacional", recOp, "#818cf8", `Margem: ${fmtPct(margem)}`)}
-        {card("Lucro Operacional", lucroOp, lucroOp>=0?"#34d399":"#f87171", `Despesas: ${fmt(despOp)}`)}
+        {card("Receita Operacional", recOp, "#818cf8", `Margem EBIT: ${fmtPct(margem)}`)}
+        {card("Lucro Operacional (EBIT)", lucroOp, lucroOp>=0?"#34d399":"#f87171", `Despesas op.: ${fmt(despOp)}`)}
         {card("Repasse Terceiros", repasse, "#f97316", "Não entra na DRE")}
         {card("Saldo em Caixa", saldoCaixa, "#fff")}
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
         {card("Volume Movimentado", totalEntradas, "rgba(255,255,255,0.6)", "Total de entradas no período")}
-        {card("Total Saídas", totalSaidas, "#f87171")}
         {card("Impostos", impostos, "#fca5a5")}
-        {card("Margem Operacional", margem, margem>=20?"#34d399":margem>=10?"#fbbf24":"#f87171", null)}
+        {card("Desp. Financeiras", despFin, "#fbbf24", `${fmtPct(pctFin)} da rec. líq.`)}
+        {card("Lucro Líquido", lucroLiq, lucroLiq>=0?"#34d399":"#f87171", `Margem: ${fmtPct(margemLiq)}`)}
       </div>
 
       {/* Tabelas */}
@@ -1227,7 +1247,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
       {/* Filtros */}
       <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
         <div style={{ display:"flex", gap:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:3 }}>
-          {[["todos","Todos"],["receita_operacional","Receita Op."],["repasse_terceiros","Repasse"],["despesa_operacional","Despesa"],["imposto","Imposto"]].map(([v,l])=>(
+          {[["todos","Todos"],["receita_operacional","Receita Op."],["repasse_terceiros","Repasse"],["despesa_operacional","Despesa Op."],["despesa_financeira","Desp. Financeira"],["imposto","Imposto"]].map(([v,l])=>(
             <button key={v} onClick={()=>setFiltro(v)} style={{ padding:"5px 11px", borderRadius:8, border:"none", background:filtro===v?"rgba(99,102,241,0.25)":"transparent", color:filtro===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:11, cursor:"pointer", fontWeight:filtro===v?600:400, whiteSpace:"nowrap" }}>{l}</button>
           ))}
         </div>
@@ -1452,112 +1472,211 @@ function DRE({ lancamentos, categorias }) {
   const [fim, setFim] = useState(hoje);
 
   const base = useMemo(()=>lancamentos.filter(l=>{
-    if(!l.impacta_dre) return false;
     if(inicio && l.data_competencia < inicio) return false;
     if(fim && l.data_competencia > fim) return false;
     return true;
   }),[lancamentos,inicio,fim]);
 
-  const recOp = base.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0);
-  const despOp = base.filter(l=>l.tipo_lancamento==="despesa_operacional").reduce((s,l)=>s+Number(l.valor),0);
-  const impostos = base.filter(l=>l.tipo_lancamento==="imposto").reduce((s,l)=>s+Number(l.valor),0);
-  const ebitda = recOp - despOp;
-  const lucroLiq = ebitda - impostos;
-  const margem = recOp>0 ? (lucroLiq/recOp)*100 : 0;
+  // ── Cálculos ──────────────────────────────────────────────────────────────
+  const recBruta   = base.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0);
+  const impostos   = base.filter(l=>l.tipo_lancamento==="imposto").reduce((s,l)=>s+Number(l.valor),0);
+  const recLiq     = recBruta - impostos;
+  const despOp     = base.filter(l=>l.tipo_lancamento==="despesa_operacional").reduce((s,l)=>s+Number(l.valor),0);
+  const ebit       = recLiq - despOp;
+  const despFin    = base.filter(l=>["despesa_financeira","taxa_bancaria"].includes(l.tipo_lancamento)).reduce((s,l)=>s+Number(l.valor),0);
+  const lucroLiq   = ebit - despFin;
+  const margemEbit = recLiq>0 ? (ebit/recLiq)*100 : 0;
+  const margemLiq  = recLiq>0 ? (lucroLiq/recLiq)*100 : 0;
+  const pctFin     = recLiq>0 ? (despFin/recLiq)*100 : 0;
 
-  const porCatRec = categorias.filter(c=>c.grupo==="receita_operacional").map(cat=>({
-    ...cat, total: base.filter(l=>l.categoria_id===cat.id&&l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0)
-  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+  // Por subgrupo de despesas operacionais
+  const subgruposOp = useMemo(()=>{
+    const grupos = {};
+    base.filter(l=>l.tipo_lancamento==="despesa_operacional").forEach(l=>{
+      const cat = categorias.find(c=>c.id===l.categoria_id);
+      const sg = cat?.subgrupo || "outros";
+      if(!grupos[sg]) grupos[sg] = { total:0, cats:{} };
+      grupos[sg].total += Number(l.valor);
+      const cn = cat?.nome || "Outros";
+      grupos[sg].cats[cn] = (grupos[sg].cats[cn]||0) + Number(l.valor);
+    });
+    return grupos;
+  },[base,categorias]);
 
-  const porCatDesp = categorias.filter(c=>c.grupo==="despesa_operacional").map(cat=>({
-    ...cat, total: base.filter(l=>l.categoria_id===cat.id&&l.tipo_lancamento==="despesa_operacional").reduce((s,l)=>s+Number(l.valor),0)
-  })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+  // Por categoria de despesas financeiras
+  const catsFin = useMemo(()=>{
+    const m = {};
+    base.filter(l=>["despesa_financeira","taxa_bancaria"].includes(l.tipo_lancamento)).forEach(l=>{
+      const cat = categorias.find(c=>c.id===l.categoria_id);
+      const cn = cat?.nome || "Outras";
+      m[cn] = (m[cn]||0) + Number(l.valor);
+    });
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  },[base,categorias]);
 
-  const linha = (label,valor,cor,bold=false,indent=false)=>(
-    <div style={{ display:"flex", justifyContent:"space-between", padding:`${bold?"12px":"8px"} 0`, borderBottom:"1px solid rgba(255,255,255,0.04)", paddingLeft:indent?16:0 }}>
-      <span style={{ fontSize:bold?14:13, color:bold?"#fff":"rgba(255,255,255,0.6)", fontWeight:bold?600:400 }}>{label}</span>
-      <span style={{ fontSize:bold?15:13, color:cor, fontWeight:bold?700:500 }}>{fmt(valor)}</span>
+  // Por categoria de receita
+  const catsRec = useMemo(()=>{
+    const m = {};
+    base.filter(l=>l.tipo_lancamento==="receita_operacional").forEach(l=>{
+      const cat = categorias.find(c=>c.id===l.categoria_id);
+      const cn = cat?.nome || "Outros";
+      m[cn] = (m[cn]||0) + Number(l.valor);
+    });
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  },[base,categorias]);
+
+  const cor = (v) => v >= 0 ? "#34d399" : "#f87171";
+  const corPct = (v) => v >= 20 ? "#34d399" : v >= 10 ? "#fbbf24" : "#f87171";
+
+  const Linha = ({label, valor, destaque=false, indent=0, corValor=null, borda=false}) => (
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:`${destaque?"12px":"7px"} 0`, borderBottom: borda?"2px solid rgba(255,255,255,0.12)":"1px solid rgba(255,255,255,0.04)", paddingLeft: indent*16 }}>
+      <span style={{ fontSize:destaque?14:13, color:destaque?"#fff":"rgba(255,255,255,0.65)", fontWeight:destaque?700:400 }}>{label}</span>
+      <span style={{ fontSize:destaque?16:13, color:corValor||(destaque?cor(valor):"rgba(255,255,255,0.8)"), fontWeight:destaque?700:500 }}>{fmt(valor)}</span>
     </div>
   );
+
+  const SUBG_LABELS = { pessoal:"Pessoal", estrutura:"Estrutura", tecnologia:"Tecnologia", marketing:"Marketing", comercial:"Comercial", administrativo:"Administrativo", outros:"Outros" };
 
   return (
     <div>
       <div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:4 }}>DRE — Demonstrativo de Resultado</div>
-      <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:18 }}>Apenas lançamentos que impactam o resultado da agência</div>
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:18 }}>Estrutura gerencial completa da agência</div>
 
       {/* Filtro */}
       <div style={{ display:"flex", gap:10, marginBottom:20, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"10px 16px", alignItems:"center", flexWrap:"wrap" }}>
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <span style={{ color:"rgba(255,255,255,0.3)" }}>até</span>
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
-        <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
-        <div style={{ marginLeft:"auto", fontSize:11, color:"rgba(249,115,22,0.8)", background:"rgba(249,115,22,0.08)", borderRadius:6, padding:"4px 10px" }}>
-          ⚠ Repasses de terceiros excluídos desta visão
-        </div>
+        <button onClick={()=>{setInicio(new Date().toISOString().slice(0,7)+"-01");setFim(new Date().toISOString().split("T")[0]);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
+        <button onClick={()=>{ const a=new Date().getFullYear(); setInicio(`${a}-01-01`); setFim(`${a}-12-31`); }} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Ano</button>
+        <div style={{ marginLeft:"auto", fontSize:11, color:"#f97316", background:"rgba(249,115,22,0.08)", borderRadius:6, padding:"4px 10px" }}>⚠ Repasses excluídos</div>
       </div>
 
       {/* KPIs */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
-        {[["Receita Operacional",recOp,"#818cf8"],["(-) Despesas Op.",despOp,"#f87171"],["EBITDA",ebitda,ebitda>=0?"#34d399":"#f87171"],["Lucro Líquido",lucroLiq,lucroLiq>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
+        {[
+          ["Receita Líquida", recLiq, "#818cf8", null],
+          ["EBIT", ebit, cor(ebit), `Margem: ${fmtPct(margemEbit)}`],
+          ["Desp. Financeiras", despFin, "#fbbf24", `${fmtPct(pctFin)} da rec. líq.`],
+          ["Lucro Líquido", lucroLiq, cor(lucroLiq), `Margem: ${fmtPct(margemLiq)}`],
+        ].map(([l,v,c,sub])=>(
           <div key={l} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"14px 16px" }}>
             <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:8, fontWeight:600 }}>{l}</div>
             <div style={{ fontSize:20, fontWeight:700, color:c }}>{fmt(v)}</div>
+            {sub && <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", marginTop:4 }}>{sub}</div>}
           </div>
         ))}
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
-        {/* DRE estruturada */}
+        {/* DRE Estruturada */}
         <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:20 }}>
           <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:16 }}>Demonstrativo</div>
-          {linha("( + ) Receita Operacional Bruta", recOp, "#818cf8", true)}
-          {porCatRec.map(cat=>linha(`    ${cat.nome}`, cat.total, "#818cf8", false, true))}
-          {linha("( − ) Despesas Operacionais", despOp, "#f87171", true)}
-          {porCatDesp.map(cat=>linha(`    ${cat.nome}`, cat.total, "#f87171", false, true))}
-          <div style={{ borderTop:"2px solid rgba(255,255,255,0.12)", marginTop:8, paddingTop:12 }}>
-            {linha("( = ) EBITDA", ebitda, ebitda>=0?"#34d399":"#f87171", true)}
-            {linha("( − ) Impostos", impostos, "#fca5a5")}
+
+          {/* Receita */}
+          <div style={{ marginBottom:8 }}>
+            <div style={{ fontSize:10, color:"#818cf8", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4 }}>Receita</div>
+            <Linha label="( + ) Receita Bruta" valor={recBruta} corValor="#818cf8" />
+            {catsRec.map(([nome,v])=><Linha key={nome} label={nome} valor={v} indent={1} corValor="#818cf8" />)}
+            <Linha label="( − ) Impostos e Deduções" valor={impostos} corValor="#f87171" />
+            <Linha label="( = ) Receita Líquida" valor={recLiq} destaque corValor="#818cf8" borda />
           </div>
-          <div style={{ borderTop:"2px solid rgba(255,255,255,0.2)", marginTop:8, paddingTop:12 }}>
-            <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0" }}>
+
+          {/* Despesas Operacionais */}
+          <div style={{ marginBottom:8 }}>
+            <div style={{ fontSize:10, color:"#10b981", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4, marginTop:8 }}>Despesas Operacionais</div>
+            {Object.entries(subgruposOp).sort((a,b)=>b[1].total-a[1].total).map(([sg,data])=>(
+              <div key={sg}>
+                <div style={{ display:"flex", justifyContent:"space-between", padding:"6px 0 2px", paddingLeft:0 }}>
+                  <span style={{ fontSize:11, color:"rgba(255,255,255,0.45)", fontWeight:600, textTransform:"uppercase", letterSpacing:"0.06em" }}>{SUBG_LABELS[sg]||sg}</span>
+                  <span style={{ fontSize:11, color:"#f87171", fontWeight:500 }}>{fmt(data.total)}</span>
+                </div>
+                {Object.entries(data.cats).map(([cn,v])=><Linha key={cn} label={cn} valor={v} indent={1} corValor="#f87171" />)}
+              </div>
+            ))}
+            <div style={{ borderTop:"1px solid rgba(255,255,255,0.08)", marginTop:4 }}>
+              <Linha label="( = ) EBIT — Resultado Operacional" valor={ebit} destaque corValor={cor(ebit)} borda />
+            </div>
+          </div>
+
+          {/* Despesas Financeiras */}
+          <div style={{ marginBottom:8 }}>
+            <div style={{ fontSize:10, color:"#fbbf24", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:4, marginTop:8 }}>Despesas Financeiras</div>
+            {catsFin.map(([nome,v])=><Linha key={nome} label={nome} valor={v} indent={1} corValor="#fbbf24" />)}
+            <div style={{ borderTop:"1px solid rgba(255,255,255,0.08)", marginTop:4 }}>
+              <Linha label="( − ) Total Despesas Financeiras" valor={despFin} corValor="#fbbf24" />
+            </div>
+          </div>
+
+          {/* Resultado Final */}
+          <div style={{ borderTop:"2px solid rgba(255,255,255,0.15)", marginTop:8, paddingTop:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end" }}>
               <span style={{ fontSize:16, color:"#fff", fontWeight:700 }}>( = ) Lucro Líquido</span>
               <div style={{ textAlign:"right" }}>
-                <div style={{ fontSize:24, fontWeight:700, color:lucroLiq>=0?"#34d399":"#f87171" }}>{fmt(lucroLiq)}</div>
-                <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)", marginTop:2 }}>Margem: {fmtPct(margem)}</div>
+                <div style={{ fontSize:26, fontWeight:700, color:cor(lucroLiq) }}>{fmt(lucroLiq)}</div>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>Margem: {fmtPct(margemLiq)}</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Detalhamento */}
-        <div>
-          <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18, marginBottom:12 }}>
-            <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.5)", marginBottom:12, textTransform:"uppercase", letterSpacing:"0.07em" }}>Receitas por serviço</div>
-            {porCatRec.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.2)" }}>Sem receitas</div>}
-            {porCatRec.map(cat=>(
-              <div key={cat.id} style={{ marginBottom:10 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>{cat.nome}</span>
-                  <span style={{ fontSize:12, color:"#818cf8", fontWeight:500 }}>{fmt(cat.total)}</span>
+        {/* Coluna direita - análises */}
+        <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          {/* Indicador de Custo Financeiro */}
+          <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"#fbbf24", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>⚠ Custo Financeiro</div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+              <div style={{ background:"rgba(251,191,36,0.08)", borderRadius:8, padding:"10px 12px" }}>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>TOTAL</div>
+                <div style={{ fontSize:18, fontWeight:700, color:"#fbbf24" }}>{fmt(despFin)}</div>
+              </div>
+              <div style={{ background:"rgba(251,191,36,0.08)", borderRadius:8, padding:"10px 12px" }}>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>% RECEITA LÍQ.</div>
+                <div style={{ fontSize:18, fontWeight:700, color:pctFin>5?"#f87171":pctFin>2?"#fbbf24":"#34d399" }}>{fmtPct(pctFin)}</div>
+              </div>
+            </div>
+            {catsFin.length===0 && <div style={{ fontSize:12, color:"rgba(255,255,255,0.2)" }}>Sem despesas financeiras no período</div>}
+            {catsFin.map(([nome,v])=>(
+              <div key={nome} style={{ marginBottom:8 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>{nome}</span>
+                  <span style={{ fontSize:12, color:"#fbbf24", fontWeight:500 }}>{fmt(v)}</span>
                 </div>
                 <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
-                  <div style={{ width:`${recOp?(cat.total/recOp*100):0}%`, height:"100%", background:cat.cor||"#6366f1", borderRadius:999 }} />
+                  <div style={{ width:`${despFin?(v/despFin*100):0}%`, height:"100%", background:"#fbbf24", borderRadius:999 }} />
                 </div>
               </div>
             ))}
           </div>
+
+          {/* Receitas por serviço */}
           <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
-            <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.5)", marginBottom:12, textTransform:"uppercase", letterSpacing:"0.07em" }}>Despesas por categoria</div>
-            {porCatDesp.length===0 && <div style={{ fontSize:13, color:"rgba(255,255,255,0.2)" }}>Sem despesas</div>}
-            {porCatDesp.map(cat=>(
-              <div key={cat.id} style={{ marginBottom:10 }}>
-                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>{cat.nome}</span>
-                  <span style={{ fontSize:12, color:"#f87171", fontWeight:500 }}>{fmt(cat.total)}</span>
+            <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Receitas por serviço</div>
+            {catsRec.length===0 && <div style={{ fontSize:12, color:"rgba(255,255,255,0.2)" }}>Sem receitas</div>}
+            {catsRec.map(([nome,v])=>(
+              <div key={nome} style={{ marginBottom:8 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:3 }}>
+                  <span style={{ fontSize:12, color:"rgba(255,255,255,0.7)" }}>{nome}</span>
+                  <span style={{ fontSize:12, color:"#818cf8", fontWeight:500 }}>{fmt(v)}</span>
                 </div>
                 <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
-                  <div style={{ width:`${despOp?(cat.total/despOp*100):0}%`, height:"100%", background:cat.cor||"#ef4444", borderRadius:999 }} />
+                  <div style={{ width:`${recBruta?(v/recBruta*100):0}%`, height:"100%", background:"#6366f1", borderRadius:999 }} />
                 </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Resumo de margens */}
+          <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:12 }}>Margens</div>
+            {[
+              ["Margem Bruta (EBIT)", margemEbit],
+              ["Impacto Financeiro", -pctFin],
+              ["Margem Líquida", margemLiq],
+            ].map(([label,pct])=>(
+              <div key={label} style={{ display:"flex", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                <span style={{ fontSize:12, color:"rgba(255,255,255,0.6)" }}>{label}</span>
+                <span style={{ fontSize:13, fontWeight:700, color:corPct(Math.abs(pct)) }}>{fmtPct(pct)}</span>
               </div>
             ))}
           </div>
