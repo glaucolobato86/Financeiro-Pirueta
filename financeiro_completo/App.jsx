@@ -471,6 +471,17 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   );
 }
 
+// ── Grupos de lançamento ───────────────────────────────────────────────────────
+const GRUPOS = {
+  receita_operacional:  { label:"Receita Operacional",    cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
+  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"entrada" },
+  despesa_operacional:  { label:"Despesa Operacional",    cor:"#10b981", impactaDRE:true,  tipo:"saida" },
+  despesa_financeira:   { label:"Despesa Financeira",     cor:"#fbbf24", impactaDRE:true,  tipo:"saida" },
+  imposto:              { label:"Imposto",                cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
+  taxa_bancaria:        { label:"Taxa Bancária",          cor:"#94a3b8", impactaDRE:false, tipo:"saida" },
+  transferencia_interna:{ label:"Transferência Interna",  cor:"#cbd5e1", impactaDRE:false, tipo:"saida" },
+};
+
 // ── Contas Bancárias ───────────────────────────────────────────────────────────
 function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias, clientes, fornecedores, projetos, userId }) {
   const [modal, setModal] = useState(false);
@@ -514,6 +525,20 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
           <Campo label="Cor"><div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>{CORES.map(cor=><div key={cor} onClick={()=>setForm({...form,cor})} style={{ width:28, height:28, borderRadius:"50%", background:cor, cursor:"pointer", border:form.cor===cor?"3px solid #fff":"2px solid transparent" }} />)}</div></Campo>
           <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
         </Modal>
+      )}
+      {ofxConta && (
+        <ImportadorOFX
+          conta={ofxConta}
+          lancamentos={lancamentos}
+          categorias={categorias}
+          clientes={clientes}
+          fornecedores={fornecedores}
+          projetos={projetos}
+          empresaId={empresaId}
+          userId={userId}
+          onRefresh={onRefresh}
+          onFechar={()=>setOfxConta(null)}
+        />
       )}
     </div>
   );
@@ -1127,15 +1152,6 @@ function Usuarios({ empresa, userId }) {
 
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-const GRUPOS = {
-  receita_operacional:  { label:"Receita Operacional",    cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
-  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"entrada" },
-  despesa_operacional:  { label:"Despesa Operacional",    cor:"#10b981", impactaDRE:true,  tipo:"saida" },
-  despesa_financeira:   { label:"Despesa Financeira",     cor:"#fbbf24", impactaDRE:true,  tipo:"saida" },
-  imposto:              { label:"Imposto",                cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
-  taxa_bancaria:        { label:"Taxa Bancária",          cor:"#94a3b8", impactaDRE:false, tipo:"saida" },
-  transferencia_interna:{ label:"Transferência Interna",  cor:"#cbd5e1", impactaDRE:false, tipo:"saida" },
-};
 
 const SUBGRUPOS = {
   pessoal:        "Pessoal",
