@@ -475,11 +475,11 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
 // ── Grupos de lançamento ───────────────────────────────────────────────────────
 const GRUPOS = {
   receita_operacional:  { label:"Receita Operacional",    cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
-  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"entrada" },
+  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"saida"   },
   despesa_operacional:  { label:"Despesa Operacional",    cor:"#10b981", impactaDRE:true,  tipo:"saida" },
   despesa_financeira:   { label:"Despesa Financeira",     cor:"#fbbf24", impactaDRE:true,  tipo:"saida" },
   imposto:              { label:"Imposto",                cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
-  taxa_bancaria:        { label:"Taxa Bancária",          cor:"#94a3b8", impactaDRE:true,  tipo:"saida" },
+  taxa_bancaria:        { label:"Taxa Bancária",          cor:"#94a3b8", impactaDRE:false, tipo:"saida" },
   transferencia_interna:{ label:"Transferência Interna",  cor:"#cbd5e1", impactaDRE:false, tipo:"saida" },
 };
 
@@ -1542,7 +1542,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
 
       {/* KPIs compactos */}
       <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
-        {[["Receita Operacional",totais.recOp,"#818cf8"],["Repasse Terceiros",totais.repasse,"#f97316"],["Despesas",totais.desp,"#f87171"],["Lucro",totais.recOp-totais.desp,(totais.recOp-totais.desp)>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
+        {[["Receita Operacional",totais.recOp,"#818cf8"],["Repasse Terceiros",-totais.repasse,"#f97316"],["Despesas",-totais.desp,"#f87171"],["Lucro",totais.recOp-totais.desp-totais.repasse,(totais.recOp-totais.desp-totais.repasse)>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
           <div key={l} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"8px 14px" }}>
             <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>{l}</div>
             <div style={{ fontSize:14, fontWeight:700, color:c }}>{fmt(v)}</div>
