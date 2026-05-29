@@ -693,7 +693,11 @@ function parseOFX(texto) {
     });
   }
 
-  return transacoes.sort((a,b) => new Date(a.data) - new Date(b.data));
+  // Extrai saldo do extrato bancário (LEDGERBAL)
+  const saldoMatch = t.match(/<LEDGERBAL>[\s\S]*?<BALAMT>([^\n<]+)/);
+  const saldoExtrato = saldoMatch ? parseFloat(saldoMatch[1].replace(",",".")) : null;
+
+  return { transacoes: transacoes.sort((a,b) => new Date(a.data) - new Date(b.data)), saldoExtrato };
 }
 
 // ── Importador OFX ─────────────────────────────────────────────────────────────
@@ -713,15 +717,23 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
     return s;
   });
 
+  const [saldoOFX, setSaldoOFX] = useState(null);
+
   const handleArquivo = (e) => {
     const arquivo = e.target.files[0];
     if(!arquivo) return;
     setProcessando(true);
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
-        const txs = parseOFX(ev.target.result);
+        const { transacoes: txs, saldoExtrato } = parseOFX(ev.target.result);
         setTransacoes(txs);
+        setSaldoOFX(saldoExtrato);
+        // Atualiza saldo da conta automaticamente com o saldo do extrato
+        if(saldoExtrato !== null && !isNaN(saldoExtrato)) {
+          await sb(`contas?id=eq.${conta.id}`, { method:"PATCH", body:JSON.stringify({ saldo: saldoExtrato }) });
+          onRefresh();
+        }
       } catch(err) {
         alert("Erro ao ler OFX: " + err.message);
       }
@@ -796,6 +808,7 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
           <div>
             <div style={{ fontSize:16, fontWeight:700, color:"#fff" }}>Importar Extrato OFX</div>
             <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginTop:2 }}>Conta: {conta.nome} — {conta.banco}</div>
+            {saldoOFX !== null && <div style={{ fontSize:12, color:"#34d399", marginTop:4 }}>✓ Saldo atualizado pelo extrato: <strong>{Number(saldoOFX).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</strong></div>}
           </div>
           <button onClick={()=>{ onRefresh(); onFechar(); }} style={{ background:"rgba(255,255,255,0.06)", border:"none", borderRadius:8, padding:"6px 14px", color:"rgba(255,255,255,0.5)", cursor:"pointer" }}>✕ Fechar</button>
         </div>
@@ -1384,13 +1397,37 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
         {card("Receita Operacional", recOp, "#818cf8", `Margem EBIT: ${fmtPct(margem)}`)}
         {card("Lucro Operacional (EBIT)", lucroOp, lucroOp>=0?"#34d399":"#f87171", `Despesas op.: ${fmt(despOp)}`)}
         {card("Repasse Terceiros", repasse, "#f97316", "Não entra na DRE")}
-        {card("Saldo em Caixa", saldoCaixa, "#fff")}
+        {card("Lucro Líquido", lucroLiq, lucroLiq>=0?"#34d399":"#f87171", `Margem: ${fmtPct(margemLiq)}`)}
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:12 }}>
         {card("Volume Movimentado", totalEntradas, "rgba(255,255,255,0.6)", "Total de entradas no período")}
         {card("Impostos", impostos, "#fca5a5")}
         {card("Desp. Financeiras", despFin, "#fbbf24", `${fmtPct(pctFin)} da rec. líq.`)}
-        {card("Lucro Líquido", lucroLiq, lucroLiq>=0?"#34d399":"#f87171", `Margem: ${fmtPct(margemLiq)}`)}
+        {card("Lucro Operacional (EBIT)", lucroOp, lucroOp>=0?"#34d399":"#f87171", `Despesas op.: ${fmt(despOp)}`)}
+      </div>
+
+      {/* Saldo em Caixa — por conta + total */}
+      <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Saldo em Caixa</div>
+        <div style={{ display:"flex", alignItems:"center", gap:24, flexWrap:"wrap" }}>
+          {contas.map(c=>{
+            const movs=lancamentos.filter(l=>l.conta_id===c.id&&l.impacta_caixa);
+            const ent=movs.filter(l=>l.tipo==="entrada").reduce((a,l)=>a+Number(l.valor),0);
+            const sai=movs.filter(l=>l.tipo==="saida").reduce((a,l)=>a+Number(l.valor),0);
+            const saldo=Number(c.saldo)+ent-sai;
+            return (
+              <div key={c.id} style={{ flex:1, minWidth:140 }}>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>{c.nome}</div>
+                <div style={{ fontSize:18, fontWeight:600, color:"#fff" }}>{fmt(saldo)}</div>
+              </div>
+            );
+          })}
+          {contas.length > 0 && <div style={{ width:"1px", height:40, background:"rgba(255,255,255,0.07)" }} />}
+          <div style={{ flex:1, minWidth:140 }}>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>SALDO TOTAL</div>
+            <div style={{ fontSize:28, fontWeight:700, color:"#fff" }}>{fmt(saldoCaixa)}</div>
+          </div>
+        </div>
       </div>
 
       {/* Tabelas */}
