@@ -1157,7 +1157,7 @@ function Relatorios({ lancamentos, categorias }) {
             <thead><tr style={{ borderBottom:"1px solid rgba(255,255,255,0.07)", background:"rgba(255,255,255,0.02)" }}>{["Data","Dia","Entradas","Saídas","Saldo do dia","Saldo acum."].map(h=>(<th key={h} style={{ padding:"11px 14px", textAlign:"left", fontSize:10, color:"rgba(255,255,255,0.35)", fontWeight:500, textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</th>))}</tr></thead>
             <tbody>
               {porDia.length===0 && <tr><td colSpan={6} style={{ padding:24, textAlign:"center", color:"rgba(255,255,255,0.25)", fontSize:13 }}>Sem movimentações.</td></tr>}
-              {(()=>{ let acum=0; return porDia.map(([data,v])=>{ const sd=v.rec-v.desp; acum+=sd; const [y,m,d]=data.split("-"); const ds=dias[new Date(Number(y),Number(m)-1,Number(d)).getDay()]; return (<tr key={data} style={{ borderBottom:"1px solid rgba(255,255,255,0.04)" }}><td style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.5)" }}>{d}/{m}/{y}</td><td style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.5)" }}>{ds}</td><td style={{ padding:"10px 14px", fontSize:12, color:"#34d399", fontWeight:500 }}>{v.rec>0?fmt(v.rec):"—"}</td><td style={{ padding:"10px 14px", fontSize:12, color:"#f87171", fontWeight:500 }}>{v.desp>0?fmt(v.desp):"—"}</td><td style={{ padding:"10px 14px", fontSize:12, fontWeight:600, color:sd>=0?"#34d399":"#f87171" }}>{fmt(sd)}</td><td style={{ padding:"10px 14px", fontSize:12, fontWeight:600, color:acum>=0?"#818cf8":"#f87171" }}>{fmt(acum)}</td></tr>); }); })()}
+              {(()=>{ let acum=saldoInicial; return porDia.map(([data,v])=>{ const sd=v.rec-v.desp; acum+=sd; const [y,m,d]=data.split("-"); const ds=dias[new Date(Number(y),Number(m)-1,Number(d)).getDay()]; return (<tr key={data} style={{ borderBottom:"1px solid rgba(255,255,255,0.04)" }}><td style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.5)" }}>{d}/{m}/{y}</td><td style={{ padding:"10px 14px", fontSize:12, color:"rgba(255,255,255,0.5)" }}>{ds}</td><td style={{ padding:"10px 14px", fontSize:12, color:"#34d399", fontWeight:500 }}>{v.rec>0?fmt(v.rec):"—"}</td><td style={{ padding:"10px 14px", fontSize:12, color:"#f87171", fontWeight:500 }}>{v.desp>0?fmt(v.desp):"—"}</td><td style={{ padding:"10px 14px", fontSize:12, fontWeight:600, color:sd>=0?"#34d399":"#f87171" }}>{fmt(sd)}</td><td style={{ padding:"10px 14px", fontSize:12, fontWeight:600, color:acum>=0?"#818cf8":"#f87171" }}>{fmt(acum)}</td></tr>); }); })()}
             </tbody>
           </table>
         </div>
@@ -2203,11 +2203,14 @@ function DRE({ lancamentos, categorias }) {
 }
 
 // ── Fluxo de Caixa ─────────────────────────────────────────────────────────────
-function FluxoCaixa({ lancamentos, categorias }) {
+function FluxoCaixa({ lancamentos, categorias, contas }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
   const [inicio, setInicio] = useState(primeiroDia);
   const [fim, setFim] = useState(hoje);
+
+  // Saldo inicial = soma dos saldos cadastrados nas contas (atualizados pelo OFX)
+  const saldoInicial = useMemo(()=>(contas||[]).reduce((s,c)=>s+Number(c.saldo),0),[contas]);
 
   const base = useMemo(()=>lancamentos.filter(l=>{
     if(l.impacta_caixa===false) return false;
@@ -2238,9 +2241,10 @@ function FluxoCaixa({ lancamentos, categorias }) {
         <input type="date" value={fim} onChange={e=>setFim(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
         <button onClick={()=>{setInicio(primeiroDia);setFim(hoje);}} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.25)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês</button>
         <div style={{ display:"flex", gap:16, marginLeft:"auto" }}>
+          <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>SALDO INICIAL</div><div style={{ fontSize:15, fontWeight:700, color:"rgba(255,255,255,0.6)" }}>{fmt(saldoInicial)}</div></div>
           <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>ENTRADAS</div><div style={{ fontSize:15, fontWeight:700, color:"#818cf8" }}>{fmt(totalEnt)}</div></div>
           <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>SAÍDAS</div><div style={{ fontSize:15, fontWeight:700, color:"#f87171" }}>{fmt(totalSai)}</div></div>
-          <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>SALDO</div><div style={{ fontSize:15, fontWeight:700, color:(totalEnt-totalSai)>=0?"#34d399":"#f87171" }}>{fmt(totalEnt-totalSai)}</div></div>
+          <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)" }}>SALDO ATUAL</div><div style={{ fontSize:15, fontWeight:700, color:(saldoInicial+totalEnt-totalSai)>=0?"#34d399":"#f87171" }}>{fmt(saldoInicial+totalEnt-totalSai)}</div></div>
         </div>
       </div>
 
@@ -2780,7 +2784,7 @@ export default function App() {
               {tela==="lancamentos"  && <Lancamentos {...props} />}
               {tela==="contas_pagar" && <ContasPagar {...props} />}
               {tela==="dre"          && <DRE lancamentos={dados.lancamentos} categorias={dados.categorias} />}
-              {tela==="fluxo_caixa"  && <FluxoCaixa lancamentos={dados.lancamentos} categorias={dados.categorias} />}
+              {tela==="fluxo_caixa"  && <FluxoCaixa lancamentos={dados.lancamentos} categorias={dados.categorias} contas={dados.contas} />}
               {tela==="por_cliente"  && <PorCliente lancamentos={dados.lancamentos} clientes={dados.clientes} projetos={dados.projetos} />}
               {tela==="por_projeto"  && <PorProjeto lancamentos={dados.lancamentos} projetos={dados.projetos} clientes={dados.clientes} />}
               {tela==="clientes"     && <Clientes clientes={dados.clientes} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
