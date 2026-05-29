@@ -2380,29 +2380,13 @@ function Categorias({ categorias, subcategorias: subcatsProps, empresaId, onRefr
   const excluirSub = async(id) => { if(!confirm("Excluir subcategoria?"))return; await sb(`subcategorias?id=eq.${id}`,{method:"DELETE",prefer:""}); carregarSubs(); };
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ nome:"", grupo:"receita_operacional", subgrupo:"", cor:"#6366f1" });
+  const [form, setForm] = useState({ nome:"", grupo:"receita_operacional", cor:"#6366f1" });
   const podeCriar = membro?.perfil !== "visualizador";
 
-  const subgruposPorGrupo = {
-    receita_operacional:   ["servicos","producao"],
-    repasse_terceiros:     ["servicos","producao"],
-    despesa_operacional:   ["pessoal","estrutura","tecnologia","marketing","comercial","administrativo"],
-    despesa_financeira:    ["tarifas","juros","antecipacao"],
-    imposto:               ["tributos"],
-    taxa_bancaria:         ["tarifas"],
-    transferencia_interna: [],
-  };
-
   const salvar = async () => {
-    if(!form.nome) return alert("Preencha o nome da categoria.");
-    if(!form.subgrupo) return alert("Selecione um subgrupo.");
+    if(!form.nome) return;
     setLoading(true);
-    try {
-      await sb("categorias",{method:"POST",body:JSON.stringify({...form,empresa_id:empresaId})});
-      setModal(false);
-      setForm({nome:"",grupo:"receita_operacional",subgrupo:"",cor:"#6366f1"});
-      onRefresh();
-    }
+    try { await sb("categorias",{method:"POST",body:JSON.stringify({...form,empresa_id:empresaId})}); setModal(false);setForm({nome:"",grupo:"receita_operacional",cor:"#6366f1"});onRefresh(); }
     catch(e){alert("Erro: "+e.message);}
     setLoading(false);
   };
@@ -2463,25 +2447,13 @@ function Categorias({ categorias, subcategorias: subcatsProps, empresaId, onRefr
         <Campo label="Grupo financeiro">
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
             {Object.entries(GRUPOS).map(([k,g])=>(
-              <button key={k} onClick={()=>setForm({...form,grupo:k,subgrupo:""})} style={{ padding:"8px", borderRadius:8, border:`1px solid ${form.grupo===k?g.cor:"rgba(255,255,255,0.08)"}`, background:form.grupo===k?g.cor+"22":"transparent", color:form.grupo===k?g.cor:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer", textAlign:"left" }}>
+              <button key={k} onClick={()=>setForm({...form,grupo:k})} style={{ padding:"8px", borderRadius:8, border:`1px solid ${form.grupo===k?g.cor:"rgba(255,255,255,0.08)"}`, background:form.grupo===k?g.cor+"22":"transparent", color:form.grupo===k?g.cor:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer", textAlign:"left" }}>
                 {g.label}
                 {!g.impactaDRE && <span style={{ display:"block", fontSize:9, opacity:0.7 }}>fora da DRE</span>}
               </button>
             ))}
           </div>
         </Campo>
-        {(subgruposPorGrupo[form.grupo]||[]).length > 0 && (
-          <Campo label="Subgrupo *">
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
-              {(subgruposPorGrupo[form.grupo]||[]).map(sg=>(
-                <button key={sg} onClick={()=>setForm({...form,subgrupo:sg})}
-                  style={{ padding:"8px 10px", borderRadius:8, border:`1px solid ${form.subgrupo===sg?"#818cf8":"rgba(255,255,255,0.08)"}`, background:form.subgrupo===sg?"rgba(99,102,241,0.2)":"transparent", color:form.subgrupo===sg?"#818cf8":"rgba(255,255,255,0.5)", fontSize:11, cursor:"pointer", textAlign:"left", fontWeight:form.subgrupo===sg?600:400 }}>
-                  {SUBGRUPOS[sg]||sg}
-                </button>
-              ))}
-            </div>
-          </Campo>
-        )}
         <Campo label="Cor"><div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           {["#6366f1","#f97316","#8b5cf6","#eab308","#06b6d4","#10b981","#ec4899","#ef4444","#a78bfa","#f59e0b"].map(cor=>(
             <div key={cor} onClick={()=>setForm({...form,cor})} style={{ width:28, height:28, borderRadius:"50%", background:cor, cursor:"pointer", border:form.cor===cor?"3px solid #fff":"2px solid transparent" }} />
