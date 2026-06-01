@@ -2886,6 +2886,41 @@ export default function App() {
   const [carregando, setCarregando] = useState(false);
   const [verificando, setVerificando] = useState(true);
 
+  // Detecta token expirado e limpa sessão automaticamente
+  useEffect(()=>{
+    const handleError = (e) => {
+      if(e?.reason?.message?.includes("JWT") || e?.reason?.status === 401 || e?.reason?.message?.includes("token")) {
+        localStorage.removeItem("sb_user");
+        window.location.reload();
+      }
+    };
+    window.addEventListener("unhandledrejection", handleError);
+    return () => window.removeEventListener("unhandledrejection", handleError);
+  },[]);
+
+  // Valida token ao voltar para a aba (visibilidade)
+  useEffect(()=>{
+    const handleVisibility = async () => {
+      if(document.visibilityState === "visible" && user) {
+        try {
+          const teste = await sb(`membros?user_id=eq.${user.id}&limit=1`);
+          if(!teste || (Array.isArray(teste) && teste[0]?.code === "PGRST301")) {
+            localStorage.removeItem("sb_user");
+            window.location.reload();
+          }
+        } catch(e) {
+          // Se falhar com 401/JWT, limpa e recarrega
+          if(e?.message?.includes("401") || e?.message?.includes("JWT")) {
+            localStorage.removeItem("sb_user");
+            window.location.reload();
+          }
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  },[user]);
+
   // Verifica se usuário já tem empresa
   useEffect(()=>{
     if (!user) { setVerificando(false); return; }
@@ -2915,7 +2950,15 @@ export default function App() {
             }
           }
         }
-      } catch(e) { console.error(e); }
+      } catch(e) {
+        console.error(e);
+        // Token expirado ou inválido — limpa sessão e recarrega
+        if(e?.message?.includes("JWT") || e?.message?.includes("401") || e?.message?.includes("token")) {
+          localStorage.removeItem("sb_user");
+          window.location.reload();
+          return;
+        }
+      }
       setVerificando(false);
     };
     verificar();
