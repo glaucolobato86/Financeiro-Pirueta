@@ -2997,7 +2997,7 @@ export default function App() {
     setDados({ lancamentos:[], contas:[], categorias:[], subcategorias:[], clientes:[], fornecedores:[], projetos:[], contasPagar:[] });
   };
 
-  if (!user) return <LoginScreen onLogin={u=>setUser(u)} />;
+  if (!user) return <LoginScreen onLogin={u=>{ setVerificando(true); setUser(u); }} />;
   if (verificando) return (<div style={{ minHeight:"100vh", background:"#0a0a0f", display:"flex", alignItems:"center", justifyContent:"center", color:"rgba(255,255,255,0.5)", fontFamily:"'DM Sans', sans-serif", fontSize:14 }}><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />Verificando acesso...</div>);
   if (!empresa) return <EmpresaSetup user={user} onEmpresa={(emp, perfil) => { setEmpresa(emp); setMembro({ perfil }); }} />;
 
