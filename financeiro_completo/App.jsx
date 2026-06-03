@@ -754,7 +754,8 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
         // Atualiza saldo da conta automaticamente com o saldo do extrato
         if(saldoExtrato !== null && !isNaN(saldoExtrato)) {
           await sb(`contas?id=eq.${conta.id}`, { method:"PATCH", body:JSON.stringify({ saldo: saldoExtrato }) });
-          onRefresh();
+          // NÃO chama onRefresh() aqui — evita fechar a tela do OFX
+          // O refresh acontece ao fechar o importador
         }
       } catch(err) {
         alert("Erro ao ler OFX: " + err.message);
