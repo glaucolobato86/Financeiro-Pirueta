@@ -562,7 +562,8 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ nome:"", banco:"", saldo:"", cor:"#6366f1" });
-  const [ofxConta, setOfxConta] = useState(null);
+  const [ofxContaId, setOfxContaId] = useState(null);
+  const ofxConta = ofxContaId ? contas.find(c=>c.id===ofxContaId)||null : null;
   const [editSaldo, setEditSaldo] = useState(null);
   const [loadingSaldo, setLoadingSaldo] = useState(false);
   const [editConta, setEditConta] = useState(null); // { id, nome, banco, cor }
@@ -607,7 +608,7 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
         {contas.map(c=>(
           <div key={c.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:18, position:"relative" }}>
             {podeExcluir && <button onClick={()=>excluir(c.id)} style={{ position:"absolute", top:12, right:12, background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
-            {membro?.perfil !== "visualizador" && <button onClick={()=>setOfxConta(c)} style={{ position:"absolute", top:12, right:44, background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:6, padding:"3px 8px", color:"#818cf8", fontSize:10, cursor:"pointer", fontWeight:600 }}>📂 OFX</button>}
+            {membro?.perfil !== "visualizador" && <button onClick={()=>setOfxContaId(c.id)} style={{ position:"absolute", top:12, right:44, background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:6, padding:"3px 8px", color:"#818cf8", fontSize:10, cursor:"pointer", fontWeight:600 }}>📂 OFX</button>}
             {podeCriar && <button onClick={()=>setEditConta({id:c.id,nome:c.nome,banco:c.banco,cor:c.cor||"#6366f1"})} style={{ position:"absolute", top:12, right:90, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"3px 8px", color:"rgba(255,255,255,0.4)", fontSize:10, cursor:"pointer" }}>✏</button>}
             <div style={{ width:34, height:34, borderRadius:9, background:(c.cor||"#6366f1")+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, marginBottom:12 }}>💳</div>
             <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:4 }}>{c.banco}</div>
@@ -667,7 +668,7 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
           empresaId={empresaId}
           userId={userId}
           onRefresh={onRefresh}
-          onFechar={()=>setOfxConta(null)}
+          onFechar={()=>setOfxContaId(null)}
         />
       )}
     </div>
