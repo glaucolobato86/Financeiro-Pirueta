@@ -31,6 +31,15 @@ const authFetch = async (endpoint, body) => {
 };
 
 const fmt = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+// Injeta fonte robusta
+if(!document.getElementById("prt-font")) {
+  const l = document.createElement("link");
+  l.id = "prt-font";
+  l.rel = "stylesheet";
+  l.href = "https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap";
+  document.head.appendChild(l);
+}
 const CORES = ["#6366f1","#e07b54","#7b6cf0","#e0b454","#54b0e0","#34d399","#e054a0","#f87171","#a78bfa","#fbbf24"];
 const inputStyle = { width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "10px 12px", color: "#fff", fontSize: 13, outline: "none", boxSizing: "border-box" };
 const selectStyle = { ...inputStyle, background: "#1e1e2e", color: "#fff" };
@@ -67,7 +76,7 @@ function LoginScreen({ onLogin }) {
     <div style={{ minHeight: "100vh", background: "#0a0a0f", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
       <div style={{ width: 400, background: "#13131a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "48px 40px" }}>
-        <img src="/logo.png" alt="PRT" style={{ height: 50, marginBottom: 20, display: "block" }} />
+        <div style={{ fontFamily:"'Black Han Sans', sans-serif", fontSize:32, letterSpacing:"0.08em", color:"#f59e0b", marginBottom:20 }}>PRT <span style={{ color:"#fff" }}>FINANCE</span></div>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginBottom: 28 }}>{modo === "login" ? "Entre na sua conta" : "Crie sua conta"}</div>
         {erro && <div style={{ background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#f87171", marginBottom: 16 }}>{erro}</div>}
         {[["E-mail","email"],["Senha","password"]].map(([label,type],i) => (
@@ -115,7 +124,7 @@ function EmpresaSetup({ user, onEmpresa }) {
     <div style={{ minHeight:"100vh", background:"#0a0a0f", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'DM Sans', sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
       <div style={{ width:440, background:"#13131a", border:"1px solid rgba(255,255,255,0.08)", borderRadius:20, padding:"40px" }}>
-        <img src="/logo.png" alt="PRT" style={{ height:44, marginBottom:16, display:"block" }} />
+        <div style={{ fontFamily:"'Black Han Sans', sans-serif", fontSize:30, letterSpacing:"0.08em", color:"#f59e0b", marginBottom:16 }}>PRT <span style={{ color:"#fff" }}>FINANCE</span></div>
         <div style={{ fontSize:18, fontWeight:600, color:"#fff", marginBottom:6 }}>Configurar empresa</div>
         <div style={{ fontSize:13, color:"rgba(255,255,255,0.5)", marginBottom:24 }}>Logado como {user.email}</div>
 
@@ -203,7 +212,7 @@ function Sidebar({ tela, setTela, user, empresa, membro, onLogout }) {
   return (
     <div style={{ width:230, background:"#13131a", borderRight:"1px solid rgba(255,255,255,0.06)", display:"flex", flexDirection:"column", flexShrink:0, position:"sticky", top:0, height:"100vh" }}>
       <div style={{ padding:"18px 20px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
-        <img src="/logo.png" alt="PRT" style={{ height:40, display:"block", marginBottom:8 }} />
+        <div style={{ fontFamily:"'Black Han Sans', sans-serif", fontSize:20, letterSpacing:"0.08em", color:"#f59e0b", marginBottom:8 }}>PRT <span style={{ color:"#fff" }}>FINANCE</span></div>
         <div style={{ fontSize:11, color:"rgba(255,255,255,0.5)", fontWeight:500 }}>{empresa?.nome}</div>
         <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{user?.email}</div>
         <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:1, textTransform:"capitalize" }}>Perfil: {membro?.perfil}</div>
