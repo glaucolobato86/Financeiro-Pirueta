@@ -212,7 +212,7 @@ function Sidebar({ tela, setTela, user, empresa, membro, onLogout }) {
   return (
     <div style={{ width:230, background:"#13131a", borderRight:"1px solid rgba(255,255,255,0.06)", display:"flex", flexDirection:"column", flexShrink:0, position:"sticky", top:0, height:"100vh" }}>
       <div style={{ padding:"18px 20px 14px", borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize:18, fontWeight:800, letterSpacing:"0.05em", color:"#f59e0b", marginBottom:8 }}>PRT <span style={{ color:"#fff" }}>FINANCE</span></div>
+        <div style={{ fontFamily:"'Black Han Sans', sans-serif", fontSize:22, letterSpacing:"0.08em", color:"#f59e0b", marginBottom:8 }}>PRT <span style={{ color:"#fff" }}>FINANCE</span></div>
         <div style={{ fontSize:11, color:"rgba(255,255,255,0.5)", fontWeight:500 }}>{empresa?.nome}</div>
         <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{user?.email}</div>
         <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:1, textTransform:"capitalize" }}>Perfil: {membro?.perfil}</div>
