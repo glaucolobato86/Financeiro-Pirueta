@@ -294,11 +294,7 @@ function PreviewModal({ preview, onClose }) {
     </div>
   );
 }
-// ── Contas a Pagar ─────────────────────────────────────────────────────────────
-// ── Contas a Receber ───────────────────────────────────────────────────────────
 
-// ── Contas a Pagar ─────────────────────────────────────────────────────────────
-// ── Contas a Receber ───────────────────────────────────────────────────────────
 function ContasReceber({ categorias, clientes, projetos, contas, empresaId, userId, onRefresh, membro }) {
   const [lista, setLista] = useState([]);
   const [modal, setModal] = useState(false);
