@@ -954,8 +954,8 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
 
 // ── Parser OFX Itaú ───────────────────────────────────────────────────────────
 function parseOFX(texto) {
-  // Normaliza encoding comum do Itaú
-  const t = texto.replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  // Normaliza encoding — usa split/join para evitar corrupção de \r\n no editor do GitHub
+  const t = texto.split("\r\n").join("\n").split("\r").join("\n");
 
   // Extrai todas as transações STMTTRN
   const transacoes = [];
