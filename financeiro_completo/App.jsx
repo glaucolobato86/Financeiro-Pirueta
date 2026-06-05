@@ -545,7 +545,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
 // ── Grupos de lançamento ───────────────────────────────────────────────────────
 const GRUPOS = {
   receita_operacional:  { label:"Receita Operacional",    cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
-  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"entrada" },
+  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"saida"   },
   despesa_operacional:  { label:"Despesa Operacional",    cor:"#10b981", impactaDRE:true,  tipo:"saida" },
   despesa_financeira:   { label:"Despesa Financeira",     cor:"#fbbf24", impactaDRE:true,  tipo:"saida" },
   imposto:              { label:"Imposto",                cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
