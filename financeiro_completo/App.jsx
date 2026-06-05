@@ -178,8 +178,9 @@ function BtnRow({ onCancel, onSave, loading }) {
 const MENU = [
   { id:"dashboard",    label:"Dashboard",     icon:"📊", single:true },
   { id:"financeiro",   label:"Financeiro",    icon:"💰", single:false, items:[
-    { id:"lancamentos",  label:"Lançamentos",    icon:"📋" },
-    { id:"contas_pagar", label:"Contas a Pagar", icon:"📅" },
+    { id:"lancamentos",    label:"Lançamentos",      icon:"📋" },
+    { id:"contas_pagar",   label:"Contas a Pagar",   icon:"📅" },
+    { id:"contas_receber", label:"Contas a Receber",  icon:"📥" },
   ]},
   { id:"relatorios",   label:"Relatórios",    icon:"📈", single:false, items:[
     { id:"dre",          label:"DRE",             icon:"📑" },
@@ -294,7 +295,279 @@ function PreviewModal({ preview, onClose }) {
   );
 }
 // ── Contas a Pagar ─────────────────────────────────────────────────────────────
-function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, membro }) {
+// ── Contas a Receber ───────────────────────────────────────────────────────────
+function ContasReceber({ categorias, clientes, projetos, contas, empresaId, userId, onRefresh, membro }) {
+  const [lista, setLista] = useState([]);
+  const [modal, setModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  const [nf, setNf] = useState(null);
+  const [comp, setComp] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const hoje = new Date().toISOString().split("T")[0];
+  const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  const fmtData = (data) => { const[y,m,d]=data.split("-"); return{dia:d,mes:meses[Number(m)-1],ano:y}; };
+
+  const [form, setForm] = useState({
+    descricao:"", valor:"", vencimento:"", categoria_id:"", cliente_id:"", projeto_id:"", conta_id:"", observacao:"",
+    modo:"unico", parcelas:2, recorrencia_meses:12
+  });
+  const podeCriar  = membro?.perfil !== "visualizador";
+  const podeExcluir = membro?.perfil !== "visualizador";
+
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    try { const d = await sb(`contas_receber?empresa_id=eq.${empresaId}&order=vencimento.asc`); setLista(d||[]); }
+    catch(e){ console.error(e); }
+    setCarregando(false);
+  }, [empresaId]);
+
+  useEffect(()=>{ carregar(); },[carregar]);
+
+  const getStatus = (c) => {
+    if(c.status==="recebido") return "recebido";
+    if(c.vencimento < hoje) return "vencido";
+    const diff = (new Date(c.vencimento)-new Date())/(1000*60*60*24);
+    if(diff<=5) return "avencer";
+    return "aberto";
+  };
+  const statusInfo = {
+    recebido: { label:"Recebido",  cor:"#34d399", bg:"rgba(52,211,153,0.15)",  icon:"✓" },
+    vencido:  { label:"Vencido",   cor:"#f87171", bg:"rgba(248,113,113,0.15)", icon:"⚠" },
+    avencer:  { label:"A receber", cor:"#fbbf24", bg:"rgba(251,191,36,0.15)",  icon:"⏰" },
+    aberto:   { label:"Em aberto", cor:"#818cf8", bg:"rgba(129,140,248,0.15)", icon:"○" },
+  };
+
+  const marcarRecebido = async (item) => {
+    if(!confirm("Marcar como recebido e lançar no financeiro?")) return;
+    // Cria lançamento de receita
+    await sb("lancamentos", { method:"POST", body:JSON.stringify({
+      descricao: item.descricao,
+      valor: item.valor,
+      tipo: "entrada",
+      tipo_lancamento: "receita_operacional",
+      data_competencia: hoje,
+      data_pagamento: hoje,
+      impacta_dre: true,
+      impacta_caixa: true,
+      empresa_id: empresaId,
+      criado_por: userId,
+      categoria_id: item.categoria_id||null,
+      cliente_id: item.cliente_id||null,
+      projeto_id: item.projeto_id||null,
+      conta_id: item.conta_id||null,
+      observacao: item.observacao||null,
+      nf_url: item.nf_url||null,
+      nf_nome: item.nf_nome||null,
+    })});
+    // Marca como recebido
+    await sb(`contas_receber?id=eq.${item.id}`, { method:"PATCH", body:JSON.stringify({ status:"recebido", recebido_em:hoje }) });
+    carregar();
+    onRefresh();
+  };
+
+  const excluir = async (id) => { if(!confirm("Excluir?"))return; await sb(`contas_receber?id=eq.${id}`,{method:"DELETE",prefer:""}); carregar(); };
+  const excluirGrupo = async (recorrencia_id) => {
+    if(!confirm("Cancelar todos os recebimentos futuros desta recorrência?"))return;
+    await sb(`contas_receber?recorrencia_id=eq.${recorrencia_id}&vencimento=gt.${hoje}&status=eq.aberto`,{method:"DELETE",prefer:""});
+    carregar();
+  };
+
+  const salvar = async () => {
+    if(!form.descricao||!form.valor||!form.vencimento) return alert("Preencha descrição, valor e vencimento.");
+    setLoading(true);
+    try {
+      let nf_url=null,nf_nome=null,comprovante_url=null,comprovante_nome=null;
+      if(nf){const r=await uploadArquivo(nf,userId);nf_url=r.url;nf_nome=r.nome;}
+      if(comp){const r=await uploadArquivo(comp,userId);comprovante_url=r.url;comprovante_nome=r.nome;}
+      const base = { empresa_id:empresaId, criado_por:userId, descricao:form.descricao, observacao:form.observacao,
+        categoria_id:form.categoria_id||null, cliente_id:form.cliente_id||null,
+        projeto_id:form.projeto_id||null, conta_id:form.conta_id||null,
+        nf_url, nf_nome, comprovante_url, comprovante_nome };
+      const addMeses = (dataStr,n) => { const d=new Date(dataStr+"T12:00:00"); d.setMonth(d.getMonth()+n); return d.toISOString().split("T")[0]; };
+
+      if(form.modo==="unico") {
+        await sb("contas_receber",{method:"POST",body:JSON.stringify({...base,valor:Number(form.valor),vencimento:form.vencimento,status:"aberto"})});
+      } else if(form.modo==="parcelado") {
+        const n=Number(form.parcelas)||2;
+        const vp=Math.round((Number(form.valor)/n)*100)/100;
+        const rid=crypto.randomUUID();
+        for(let i=0;i<n;i++){
+          await sb("contas_receber",{method:"POST",body:JSON.stringify({...base,valor:vp,vencimento:addMeses(form.vencimento,i),status:"aberto",recorrencia_id:rid,parcela_atual:i+1,total_parcelas:n,descricao:`${form.descricao} (${i+1}/${n})`})});
+        }
+      } else if(form.modo==="recorrente") {
+        const n=Number(form.recorrencia_meses)||12;
+        const rid=crypto.randomUUID();
+        for(let i=0;i<n;i++){
+          await sb("contas_receber",{method:"POST",body:JSON.stringify({...base,valor:Number(form.valor),vencimento:addMeses(form.vencimento,i),status:"aberto",recorrencia_id:rid,parcela_atual:i+1,total_parcelas:n})});
+        }
+      }
+      setModal(false); setNf(null); setComp(null);
+      setForm({descricao:"",valor:"",vencimento:"",categoria_id:"",cliente_id:"",projeto_id:"",conta_id:"",observacao:"",modo:"unico",parcelas:2,recorrencia_meses:12});
+      carregar();
+    } catch(e){ alert("Erro: "+e.message); }
+    setLoading(false);
+  };
+
+  const filtrada = lista.filter(c=>filtroStatus==="todos"||getStatus(c)===filtroStatus);
+  const totalAberto = lista.filter(c=>getStatus(c)!=="recebido").reduce((s,c)=>s+Number(c.valor),0);
+  const totalRecebido = lista.filter(c=>c.status==="recebido").reduce((s,c)=>s+Number(c.valor),0);
+  const porDia = {};
+  filtrada.forEach(c=>{ if(!porDia[c.vencimento])porDia[c.vencimento]=[]; porDia[c.vencimento].push(c); });
+  const diasOrdenados = Object.entries(porDia).sort((a,b)=>a[0].localeCompare(b[0]));
+
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:18 }}>
+        <div>
+          <div style={{ fontSize:22, fontWeight:600, color:"#fff", marginBottom:4 }}>Contas a Receber</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.35)" }}>{lista.length} registros</div>
+        </div>
+        {podeCriar && <button onClick={()=>setModal(true)} style={{ background:"#6366f1", border:"none", borderRadius:8, padding:"9px 16px", color:"#fff", fontSize:13, fontWeight:500, cursor:"pointer" }}>+ Novo recebimento</button>}
+      </div>
+
+      {/* Totais */}
+      <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"14px 20px", marginBottom:16, display:"flex", gap:28, flexWrap:"wrap", alignItems:"center" }}>
+        <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:"0.06em" }}>Resumo</div>
+        {[["A Receber",totalAberto,"#818cf8"],["Já Recebido",totalRecebido,"#34d399"],["Total",totalAberto+totalRecebido,"#fff"]].map(([l,v,c])=>(
+          <div key={l}><div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", textTransform:"uppercase", marginBottom:3 }}>{l}</div><div style={{ fontSize:15, fontWeight:600, color:c }}>{fmt(v)}</div></div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display:"flex", gap:7, marginBottom:16 }}>
+        {[["todos","Todos"],["aberto","Em aberto"],["avencer","A vencer"],["vencido","Vencidos"],["recebido","Recebidos"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setFiltroStatus(v)} style={{ padding:"6px 12px", borderRadius:7, border:`1px solid ${filtroStatus===v?"#6366f1":"rgba(255,255,255,0.1)"}`, background:filtroStatus===v?"rgba(99,102,241,0.15)":"transparent", color:filtroStatus===v?"#818cf8":"rgba(255,255,255,0.4)", fontSize:12, cursor:"pointer" }}>{l}</button>
+        ))}
+      </div>
+
+      {carregando && <div style={{ color:"rgba(255,255,255,0.3)", padding:20 }}>Carregando...</div>}
+
+      {diasOrdenados.map(([data,itens])=>{
+        const {dia,mes,ano} = fmtData(data);
+        const totalDia = itens.reduce((s,c)=>s+Number(c.valor),0);
+        return (
+          <div key={data} style={{ display:"flex", gap:14, marginBottom:16 }}>
+            <div style={{ width:48, textAlign:"center", flexShrink:0 }}>
+              <div style={{ fontSize:20, fontWeight:700, color:"#fff", lineHeight:1 }}>{dia}</div>
+              <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>{mes}</div>
+              <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)" }}>{ano}</div>
+            </div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginBottom:6, textAlign:"right" }}>Total do dia: {fmt(totalDia)}</div>
+              {itens.map(c=>{
+                const st = getStatus(c);
+                const si = statusInfo[st];
+                const cli = clientes.find(x=>x.id===c.cliente_id);
+                const proj = projetos.find(x=>x.id===c.projeto_id);
+                const cat = categorias.find(x=>x.id===c.categoria_id);
+                return (
+                  <div key={c.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"12px 14px", marginBottom:8, display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{ background:si.bg, border:`1px solid ${si.cor}44`, borderRadius:6, padding:"3px 8px", fontSize:11, color:si.cor, fontWeight:500, whiteSpace:"nowrap", minWidth:80, textAlign:"center" }}>{si.icon} {si.label}</div>
+                    {st!=="recebido" && podeCriar && (
+                      <button onClick={()=>marcarRecebido(c)} title="Marcar como recebido" style={{ width:34, height:34, borderRadius:"50%", background:"#16a34a", border:"none", color:"#fff", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>💰</button>
+                    )}
+                    {st==="recebido" && <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(52,211,153,0.2)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:16 }}>✓</div>}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, color:"#fff", fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                        {c.descricao}
+                        {c.total_parcelas>1 && <span style={{ marginLeft:6, fontSize:10, background:"rgba(99,102,241,0.15)", color:"#818cf8", padding:"1px 6px", borderRadius:4 }}>{c.parcela_atual}/{c.total_parcelas}</span>}
+                      </div>
+                      <div style={{ display:"flex", gap:6, marginTop:3, flexWrap:"wrap" }}>
+                        {cat && <span style={{ fontSize:11, background:(cat.cor||"#6366f1")+"22", color:cat.cor||"#6366f1", padding:"1px 7px", borderRadius:4 }}>{cat.nome}</span>}
+                        {cli && <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>👤 {cli.nome}</span>}
+                        {proj && <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>📁 {proj.nome}</span>}
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", gap:6 }}>
+                      {c.nf_url && <button onClick={()=>verAnexo(c.nf_url,c.nf_nome||"NF",setPreview)} style={{ background:"rgba(52,211,153,0.12)", border:"1px solid rgba(52,211,153,0.3)", color:"#34d399", cursor:"pointer", fontSize:10, padding:"2px 8px", borderRadius:4 }}>📄 NF</button>}
+                      {c.comprovante_url && <button onClick={()=>verAnexo(c.comprovante_url,c.comprovante_nome||"Comp.",setPreview)} style={{ background:"rgba(52,211,153,0.12)", border:"1px solid rgba(52,211,153,0.3)", color:"#34d399", cursor:"pointer", fontSize:10, padding:"2px 8px", borderRadius:4 }}>🧾 Comp.</button>}
+                    </div>
+                    <div style={{ fontSize:15, fontWeight:600, color:st==="recebido"?"#34d399":"#818cf8", minWidth:100, textAlign:"right" }}>+{fmt(c.valor)}</div>
+                    <div style={{ display:"flex", gap:4 }}>
+                      {c.recorrencia_id && st!=="recebido" && <button onClick={()=>excluirGrupo(c.recorrencia_id)} title="Cancelar série" style={{ background:"rgba(251,191,36,0.1)", border:"1px solid rgba(251,191,36,0.2)", borderRadius:5, color:"#fbbf24", cursor:"pointer", fontSize:10, padding:"2px 7px" }}>⛔</button>}
+                      {podeExcluir && <button onClick={()=>excluir(c.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      <PreviewModal preview={preview} onClose={()=>setPreview(null)} />
+
+      {modal && (
+        <Modal titulo="Novo recebimento" onClose={()=>setModal(false)}>
+          <Campo label="Descrição"><input style={inputStyle} value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} placeholder="Ex: Fee mensal, Projeto X..." /></Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Valor (R$)"><input style={inputStyle} type="number" step="0.01" value={form.valor} onChange={e=>setForm({...form,valor:e.target.value})} /></Campo>
+            <Campo label="Vencimento / Previsão"><input style={inputStyle} type="date" value={form.vencimento} onChange={e=>setForm({...form,vencimento:e.target.value})} /></Campo>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Cliente">
+              <select style={selectStyle} value={form.cliente_id} onChange={e=>setForm({...form,cliente_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem cliente</option>
+                {clientes.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Projeto">
+              <select style={selectStyle} value={form.projeto_id} onChange={e=>setForm({...form,projeto_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem projeto</option>
+                {projetos.map(p=><option style={optionStyle} key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Categoria">
+              <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem categoria</option>
+                {categorias.filter(c=>c.grupo==="receita_operacional").map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Conta bancária">
+              <select style={selectStyle} value={form.conta_id} onChange={e=>setForm({...form,conta_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem conta</option>
+                {contas.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+          <Campo label="Tipo de lançamento">
+            <div style={{ display:"flex", gap:6 }}>
+              {[["unico","Único"],["parcelado","Parcelado"],["recorrente","Recorrente"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setForm({...form,modo:v})} style={{ flex:1, padding:"9px 6px", borderRadius:8, border:`1px solid ${form.modo===v?"#6366f1":"rgba(255,255,255,0.1)"}`, background:form.modo===v?"rgba(99,102,241,0.2)":"transparent", color:form.modo===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:12, cursor:"pointer", fontWeight:form.modo===v?600:400 }}>{l}</button>
+              ))}
+            </div>
+          </Campo>
+          {form.modo==="parcelado" && (
+            <Campo label="Número de parcelas">
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <input style={{ ...inputStyle, width:80 }} type="number" min="2" max="60" value={form.parcelas} onChange={e=>setForm({...form,parcelas:e.target.value})} />
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>{form.valor?`${form.parcelas}x de ${fmt(Number(form.valor)/Number(form.parcelas))}`:`${form.parcelas} parcelas mensais`}</div>
+              </div>
+            </Campo>
+          )}
+          {form.modo==="recorrente" && (
+            <Campo label="Duração (meses)">
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <input style={{ ...inputStyle, width:80 }} type="number" min="2" max="120" value={form.recorrencia_meses} onChange={e=>setForm({...form,recorrencia_meses:e.target.value})} />
+                <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)" }}>{form.recorrencia_meses} meses de {form.valor?fmt(Number(form.valor)):"R$ --"}</div>
+              </div>
+            </Campo>
+          )}
+          <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"vertical", minHeight:50 }} value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} /></Campo>
+          <Campo label="📄 Nota Fiscal"><input type="file" accept="image/*,.pdf" onChange={e=>setNf(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{nf&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {nf.name}</div>}</Campo>
+          <Campo label="🧾 Comprovante"><input type="file" accept="image/*,.pdf" onChange={e=>setComp(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{comp&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {comp.name}</div>}</Campo>
+          <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── Contas a Pagar ─────────────────────────────────────────────────────────────
   const [contas, setContas] = useState([]);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -2888,7 +3161,7 @@ export default function App() {
   const [empresa, setEmpresa] = useState(null);
   const [membro, setMembro] = useState(null);
   const [tela, setTela] = useState("dashboard");
-  const [dados, setDados] = useState({ lancamentos:[], contas:[], categorias:[], subcategorias:[], clientes:[], fornecedores:[], projetos:[], contasPagar:[] });
+  const [dados, setDados] = useState({ lancamentos:[], contas:[], categorias:[], subcategorias:[], clientes:[], fornecedores:[], projetos:[], contasPagar:[], contasReceber:[] });
   const [carregando, setCarregando] = useState(false);
   const [verificando, setVerificando] = useState(true);
 
@@ -2975,17 +3248,18 @@ export default function App() {
     setCarregando(true);
     try {
       const eid = empresa.id;
-      const [lancamentos, contas, categorias, subcategorias, clientes, fornecedores, projetos, contasPagar] = await Promise.all([
+      const [lancamentos, contas, categorias, subcategorias, clientes, fornecedores, projetos, contasPagar, contasReceber] = await Promise.all([
         sb(`lancamentos?empresa_id=eq.${eid}&order=data_competencia.desc`),
         sb(`contas?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`categorias?empresa_id=eq.${eid}&order=ordem.asc,nome.asc`),
+        sb(`contas_receber?empresa_id=eq.${eid}&order=vencimento.asc`),
         sb(`subcategorias?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`clientes?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`fornecedores?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`projetos?empresa_id=eq.${eid}&order=created_at.desc`),
         sb(`contas_pagar?empresa_id=eq.${eid}&order=vencimento.asc`),
       ]);
-      setDados({ lancamentos, contas, categorias, subcategorias, clientes, fornecedores, projetos, contasPagar });
+      setDados({ lancamentos, contas, categorias, subcategorias, clientes, fornecedores, projetos, contasPagar, contasReceber });
     } catch(e) { console.error(e); }
     setCarregando(false);
   }, [empresa]);
@@ -3000,7 +3274,7 @@ export default function App() {
     setUser(null);
     setEmpresa(null);
     setMembro(null);
-    setDados({ lancamentos:[], contas:[], categorias:[], subcategorias:[], clientes:[], fornecedores:[], projetos:[], contasPagar:[] });
+    setDados({ lancamentos:[], contas:[], categorias:[], subcategorias:[], clientes:[], fornecedores:[], projetos:[], contasPagar:[], contasReceber:[] });
   };
 
   if (!user) return <LoginScreen onLogin={u=>{ setVerificando(true); setUser(u); }} />;
@@ -3020,7 +3294,8 @@ export default function App() {
             <>
               {tela==="dashboard"    && <Dashboard {...props} subcategorias={dados.subcategorias} setTela={setTela} />}
               {tela==="lancamentos"  && <Lancamentos {...props} />}
-              {tela==="contas_pagar" && <ContasPagar {...props} />}
+              {tela==="contas_pagar"   && <ContasPagar {...props} />}
+              {tela==="contas_receber" && <ContasReceber categorias={dados.categorias} clientes={dados.clientes} projetos={dados.projetos} contas={dados.contas} empresaId={empresa.id} userId={user.id} onRefresh={carregar} membro={membro} />}
               {tela==="dre"          && <DRE lancamentos={dados.lancamentos} categorias={dados.categorias} />}
               {tela==="fluxo_caixa"  && <FluxoCaixa lancamentos={dados.lancamentos} categorias={dados.categorias} contas={dados.contas} />}
               {tela==="por_cliente"  && <PorCliente lancamentos={dados.lancamentos} clientes={dados.clientes} projetos={dados.projetos} />}
