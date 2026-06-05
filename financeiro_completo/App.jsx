@@ -614,7 +614,8 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
             {membro?.perfil !== "visualizador" && <button onClick={()=>setOfxContaId(c.id)} style={{ position:"absolute", top:12, right:44, background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:6, padding:"3px 8px", color:"#818cf8", fontSize:10, cursor:"pointer", fontWeight:600 }}>📂 OFX</button>}
             {podeCriar && <button onClick={()=>setEditConta({id:c.id,nome:c.nome,banco:c.banco,cor:c.cor||"#6366f1"})} style={{ position:"absolute", top:12, right:90, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, padding:"3px 8px", color:"rgba(255,255,255,0.4)", fontSize:10, cursor:"pointer" }}>✏</button>}
             <div style={{ width:34, height:34, borderRadius:9, background:(c.cor||"#6366f1")+"22", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, marginBottom:12 }}>💳</div>
-            <div style={{ fontSize:12, color:"rgba(255,255,255,0.5)", marginBottom:4 }}>{c.banco}</div>
+            <div style={{ fontSize:14, fontWeight:600, color:"#fff", marginBottom:2 }}>{c.nome}</div>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", marginBottom:4 }}>{c.banco}</div>
             <div style={{ fontSize:20, fontWeight:600, color:"#fff", marginBottom:6 }}>{fmt(saldoDinamico(c))}</div>
             <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
               Saldo inicial: {fmt(Number(c.saldo))}
