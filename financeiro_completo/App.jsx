@@ -994,9 +994,17 @@ function parseOFX(texto) {
     });
   }
 
-  // Extrai saldo do extrato bancário (LEDGERBAL)
-  const saldoMatch = t.match(/<LEDGERBAL>[\s\S]*?<BALAMT>([^\n<]+)/);
-  const saldoExtrato = saldoMatch ? parseFloat(saldoMatch[1].replace(",",".")) : null;
+  // Extrai saldo do extrato bancário — tenta vários formatos do Itaú
+  let saldoExtrato = null;
+  const tryPatterns = [
+    /<LEDGERBAL>[\s\S]*?<BALAMT>([-\d.,]+)/,
+    /<AVAILBAL>[\s\S]*?<BALAMT>([-\d.,]+)/,
+    /<BALAMT>([-\d.,]+)/,
+  ];
+  for(const pat of tryPatterns) {
+    const m = t.match(pat);
+    if(m) { saldoExtrato = parseFloat(m[1].replace(",",".")); break; }
+  }
 
   return { transacoes: transacoes.sort((a,b) => new Date(a.data) - new Date(b.data)), saldoExtrato };
 }
@@ -1034,7 +1042,8 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
         if(saldoExtrato !== null && !isNaN(saldoExtrato)) {
           await sb(`contas?id=eq.${conta.id}`, { method:"PATCH", body:JSON.stringify({ saldo: saldoExtrato }) });
           // NÃO chama onRefresh() aqui — evita fechar a tela do OFX
-          // O refresh acontece ao fechar o importador
+        } else {
+          console.warn("Saldo não encontrado no arquivo OFX — verifique se o arquivo contém LEDGERBAL ou BALAMT.");
         }
       } catch(err) {
         alert("Erro ao ler OFX: " + err.message);
