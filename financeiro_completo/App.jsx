@@ -1647,7 +1647,7 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
   const totalSaidas   = filtrados.filter(l=>l.tipo==="saida").reduce((s,l)=>s+Number(l.valor),0);
   const lucroOp = recOp - despOp;
   const margem  = recOp > 0 ? (lucroOp/recOp)*100 : 0;
-  const saldoCaixa = contas.reduce((s,c)=>{ const movs=lancamentos.filter(l=>l.conta_id===c.id&&l.impacta_caixa); const ent=movs.filter(l=>l.tipo==="entrada").reduce((a,l)=>a+Number(l.valor),0); const sai=movs.filter(l=>l.tipo==="saida").reduce((a,l)=>a+Number(l.valor),0); return s+Number(c.saldo)+ent-sai; },0);
+  const saldoCaixa = contas.reduce((s,c)=>{ const dataRef=c.data_saldo||null; const movs=lancamentos.filter(l=>l.conta_id===c.id&&l.impacta_caixa&&(!dataRef||l.data_competencia>dataRef)); const ent=movs.filter(l=>l.tipo==="entrada").reduce((a,l)=>a+Number(l.valor),0); const sai=movs.filter(l=>l.tipo==="saida").reduce((a,l)=>a+Number(l.valor),0); return s+Number(c.saldo)+ent-sai; },0);
 
   // Top clientes
   const topClientes = clientes.map(cl=>({
@@ -1741,7 +1741,8 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
         <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Saldo em Caixa</div>
         <div style={{ display:"flex", alignItems:"center", gap:24, flexWrap:"wrap" }}>
           {contas.map(c=>{
-            const movs=lancamentos.filter(l=>l.conta_id===c.id&&l.impacta_caixa);
+            const dataRef=c.data_saldo||null;
+            const movs=lancamentos.filter(l=>l.conta_id===c.id&&l.impacta_caixa&&(!dataRef||l.data_competencia>dataRef));
             const ent=movs.filter(l=>l.tipo==="entrada").reduce((a,l)=>a+Number(l.valor),0);
             const sai=movs.filter(l=>l.tipo==="saida").reduce((a,l)=>a+Number(l.valor),0);
             const saldo=Number(c.saldo)+ent-sai;
