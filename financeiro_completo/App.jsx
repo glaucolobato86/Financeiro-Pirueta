@@ -834,9 +834,14 @@ const GRUPOS = {
 
 // ── Contas Bancárias ───────────────────────────────────────────────────────────
 function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias, clientes, fornecedores, projetos, userId }) {
-  // Calcula saldo dinâmico: saldo_inicial + entradas - saídas por conta
+  // Calcula saldo dinâmico: saldo_inicial (referência OFX) + lançamentos APÓS a data do saldo
   const saldoDinamico = (conta) => {
-    const movs = lancamentos.filter(l => l.conta_id === conta.id && l.impacta_caixa);
+    const dataRef = conta.data_saldo || null;
+    const movs = lancamentos.filter(l => {
+      if(l.conta_id !== conta.id || !l.impacta_caixa) return false;
+      if(dataRef) return l.data_competencia > dataRef;
+      return true;
+    });
     const entradas = movs.filter(l => l.tipo === "entrada").reduce((s,l) => s + Number(l.valor), 0);
     const saidas   = movs.filter(l => l.tipo === "saida").reduce((s,l) => s + Number(l.valor), 0);
     return Number(conta.saldo) + entradas - saidas;
@@ -983,6 +988,13 @@ function parseOFX(texto) {
 
     if(!dtStr || isNaN(valor)) continue;
 
+    // Ignora entradas de saldo do extrato Itaú (não são transações reais)
+    const memoUpper = (memo||"").toUpperCase();
+    if(memoUpper.includes("SALDO ANTERIOR") || 
+       memoUpper.includes("SALDO TOTAL DISPON") ||
+       memoUpper.includes("SALDO DISPONIVEL") ||
+       memoUpper.includes("SALDO DO DIA")) continue;
+
     // Formata data para YYYY-MM-DD
     const ano  = dtStr.slice(0,4);
     const mes  = dtStr.slice(4,6);
@@ -1046,7 +1058,8 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
         // Atualiza saldo da conta automaticamente com o saldo do extrato
         if(saldoExtrato !== null && !isNaN(saldoExtrato)) {
           const saldoPositivo = Math.abs(saldoExtrato);
-          await sb(`contas?id=eq.${conta.id}`, { method:"PATCH", body:JSON.stringify({ saldo: saldoPositivo }) });
+          const dataHoje = new Date().toISOString().split("T")[0];
+          await sb(`contas?id=eq.${conta.id}`, { method:"PATCH", body:JSON.stringify({ saldo: saldoPositivo, data_saldo: dataHoje }) });
           // NÃO chama onRefresh() aqui — evita fechar a tela do OFX
         } else {
           console.warn("Saldo não encontrado no arquivo OFX — verifique se o arquivo contém LEDGERBAL ou BALAMT.");
