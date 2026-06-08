@@ -341,30 +341,35 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
 
   const marcarRecebido = async (item) => {
     if(!confirm("Marcar como recebido e lançar no financeiro?")) return;
-    // Cria lançamento de receita
-    await sb("lancamentos", { method:"POST", body:JSON.stringify({
-      descricao: item.descricao,
-      valor: item.valor,
-      tipo: "entrada",
-      tipo_lancamento: "receita_operacional",
-      data_competencia: hoje,
-      data_pagamento: hoje,
-      impacta_dre: true,
-      impacta_caixa: true,
-      empresa_id: empresaId,
-      criado_por: userId,
-      categoria_id: item.categoria_id||null,
-      cliente_id: item.cliente_id||null,
-      projeto_id: item.projeto_id||null,
-      conta_id: item.conta_id||null,
-      observacao: item.observacao||null,
-      nf_url: item.nf_url||null,
-      nf_nome: item.nf_nome||null,
-    })});
-    // Marca como recebido
-    await sb(`contas_receber?id=eq.${item.id}`, { method:"PATCH", body:JSON.stringify({ status:"recebido", recebido_em:hoje }) });
-    carregar();
-    onRefresh();
+    try {
+      // Cria lançamento de receita
+      const res = await sb("lancamentos", { method:"POST", body:JSON.stringify({
+        descricao: item.descricao,
+        valor: item.valor,
+        tipo: "entrada",
+        tipo_lancamento: "receita_operacional",
+        data_competencia: hoje,
+        data_pagamento: hoje,
+        impacta_dre: true,
+        impacta_caixa: true,
+        valor_repasse: 0,
+        modo_lanc: "unico",
+        empresa_id: empresaId,
+        criado_por: userId,
+        categoria_id: item.categoria_id||null,
+        cliente_id: item.cliente_id||null,
+        projeto_id: item.projeto_id||null,
+        conta_id: item.conta_id||null,
+        observacao: item.observacao||null,
+        nf_url: item.nf_url||null,
+        nf_nome: item.nf_nome||null,
+      })});
+      if(res && res[0]?.code) { alert("Erro ao criar lançamento: " + (res[0].message||JSON.stringify(res[0]))); return; }
+      // Marca como recebido
+      await sb(`contas_receber?id=eq.${item.id}`, { method:"PATCH", body:JSON.stringify({ status:"recebido", recebido_em:hoje }) });
+      carregar();
+      onRefresh();
+    } catch(e) { alert("Erro: " + e.message); }
   };
 
   const excluir = async (id) => { if(!confirm("Excluir?"))return; await sb(`contas_receber?id=eq.${id}`,{method:"DELETE",prefer:""}); carregar(); };
@@ -1037,10 +1042,11 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
       try {
         const { transacoes: txs, saldoExtrato } = parseOFX(ev.target.result);
         setTransacoes(txs);
-        setSaldoOFX(saldoExtrato);
+        setSaldoOFX(saldoExtrato !== null ? Math.abs(saldoExtrato) : null);
         // Atualiza saldo da conta automaticamente com o saldo do extrato
         if(saldoExtrato !== null && !isNaN(saldoExtrato)) {
-          await sb(`contas?id=eq.${conta.id}`, { method:"PATCH", body:JSON.stringify({ saldo: saldoExtrato }) });
+          const saldoPositivo = Math.abs(saldoExtrato);
+          await sb(`contas?id=eq.${conta.id}`, { method:"PATCH", body:JSON.stringify({ saldo: saldoPositivo }) });
           // NÃO chama onRefresh() aqui — evita fechar a tela do OFX
         } else {
           console.warn("Saldo não encontrado no arquivo OFX — verifique se o arquivo contém LEDGERBAL ou BALAMT.");
