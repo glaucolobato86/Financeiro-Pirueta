@@ -824,6 +824,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
 // ── Grupos de lançamento ───────────────────────────────────────────────────────
 const GRUPOS = {
   receita_operacional:  { label:"Receita Operacional",    cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
+  repasse_entrada:      { label:"Recebimento Pass-through", cor:"#fb923c", impactaDRE:false, tipo:"entrada" },
   repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"saida"   },
   despesa_operacional:  { label:"Despesa Operacional",    cor:"#10b981", impactaDRE:true,  tipo:"saida" },
   despesa_financeira:   { label:"Despesa Financeira",     cor:"#fbbf24", impactaDRE:true,  tipo:"saida" },
@@ -2031,9 +2032,10 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
   },[lista]);
 
   const totais = useMemo(()=>({
-    recOp:  lista.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0),
-    repasse:lista.filter(l=>l.tipo_lancamento==="repasse_terceiros").reduce((s,l)=>s+Number(l.valor),0),
-    desp:   lista.filter(l=>["despesa_operacional","imposto"].includes(l.tipo_lancamento)).reduce((s,l)=>s+Number(l.valor),0),
+    recOp:      lista.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0),
+    repEntrada: lista.filter(l=>l.tipo_lancamento==="repasse_entrada").reduce((s,l)=>s+Number(l.valor),0),
+    repasse:    lista.filter(l=>l.tipo_lancamento==="repasse_terceiros").reduce((s,l)=>s+Number(l.valor),0),
+    desp:       lista.filter(l=>["despesa_operacional","imposto"].includes(l.tipo_lancamento)).reduce((s,l)=>s+Number(l.valor),0),
   }),[lista]);
 
   const salvar = async () => {
@@ -2135,7 +2137,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
     setLoading(false);
   };
 
-  const CORES_GRUPO = { receita_operacional:"#818cf8", repasse_terceiros:"#f97316", despesa_operacional:"#34d399", imposto:"#f87171", taxa_bancaria:"#94a3b8", transferencia_interna:"#cbd5e1" };
+  const CORES_GRUPO = { receita_operacional:"#818cf8", repasse_entrada:"#fb923c", repasse_terceiros:"#f97316", despesa_operacional:"#34d399", imposto:"#f87171", taxa_bancaria:"#94a3b8", transferencia_interna:"#cbd5e1" };
   const meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   const dias=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
   const fmtDt=(data)=>{ if(!data)return""; const[y,m,d]=data.split("-"); return `${dias[new Date(Number(y),Number(m)-1,Number(d)).getDay()]}, ${d} ${meses[Number(m)-1]}`; };
@@ -2152,7 +2154,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
 
       {/* KPIs compactos */}
       <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
-        {[["Receita Operacional",totais.recOp,"#818cf8"],["Repasse Terceiros",totais.repasse,"#f97316"],["Despesas",totais.desp,"#f87171"],["Lucro",totais.recOp-totais.desp,(totais.recOp-totais.desp)>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
+        {[["Receita Operacional",totais.recOp,"#818cf8"],["Rec. Pass-through",totais.repEntrada,"#fb923c"],["Repasse Terceiros",totais.repasse,"#f97316"],["Despesas",totais.desp,"#f87171"],["Lucro",totais.recOp-totais.desp,(totais.recOp-totais.desp)>=0?"#34d399":"#f87171"]].map(([l,v,c])=>(
           <div key={l} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"8px 14px" }}>
             <div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>{l}</div>
             <div style={{ fontSize:14, fontWeight:700, color:c }}>{fmt(v)}</div>
@@ -2163,7 +2165,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
       {/* Filtros */}
       <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap", alignItems:"center" }}>
         <div style={{ display:"flex", gap:1, background:"rgba(255,255,255,0.04)", borderRadius:10, padding:3 }}>
-          {[["todos","Todos"],["receita_operacional","Receita Op."],["repasse_terceiros","Repasse"],["despesa_operacional","Despesa Op."],["despesa_financeira","Desp. Financeira"],["imposto","Imposto"]].map(([v,l])=>(
+          {[["todos","Todos"],["receita_operacional","Receita Op."],["repasse_entrada","Rec. Pass-through"],["repasse_terceiros","Repasse"],["despesa_operacional","Despesa Op."],["despesa_financeira","Desp. Financeira"],["imposto","Imposto"]].map(([v,l])=>(
             <button key={v} onClick={()=>setFiltro(v)} style={{ padding:"5px 11px", borderRadius:8, border:"none", background:filtro===v?"rgba(99,102,241,0.25)":"transparent", color:filtro===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:11, cursor:"pointer", fontWeight:filtro===v?600:400, whiteSpace:"nowrap" }}>{l}</button>
           ))}
         </div>
