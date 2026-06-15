@@ -856,7 +856,7 @@ const GRUPOS = {
 };
 
 // ── Contas Bancárias ───────────────────────────────────────────────────────────
-function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias, clientes, fornecedores, projetos, userId }) {
+function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias, clientes, fornecedores, projetos, userId, contasReceber, contasPagar }) {
   // Calcula saldo dinâmico: saldo_inicial (referência OFX) + lançamentos APÓS a data do saldo
   const saldoDinamico = (conta) => {
     const dataRef = conta.data_saldo || null;
@@ -981,6 +981,8 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
           userId={userId}
           onRefresh={onRefresh}
           onFechar={()=>setOfxContaId(null)}
+          contasReceber={contasReceber}
+          contasPagar={contasPagar}
         />
       )}
     </div>
@@ -1051,7 +1053,7 @@ function parseOFX(texto) {
 }
 
 // ── Importador OFX ─────────────────────────────────────────────────────────────
-function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores, projetos, empresaId, userId, onRefresh, onFechar }) {
+function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores, projetos, empresaId, userId, onRefresh, onFechar, contasReceber, contasPagar }) {
   const [transacoes, setTransacoes] = useState([]);
   const [processando, setProcessando] = useState(false);
   const [modalLanc, setModalLanc] = useState(null);
@@ -1068,6 +1070,7 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
   });
 
   const [saldoOFX, setSaldoOFX] = useState(null);
+  const [vinculoId, setVinculoId] = useState(""); // id da conta a receber/pagar vinculada
 
   const handleArquivo = (e) => {
     const arquivo = e.target.files[0];
@@ -1118,6 +1121,7 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
       valor_repasse: "0",
       observacao: `Importado OFX - ${tx.fitid}`,
     });
+    setVinculoId("");
     setModalLanc(tx);
   };
 
@@ -1137,7 +1141,17 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
         projeto_id: form.projeto_id || null,
         data_pagamento: form.data_pagamento || null,
       })});
+      // Dá baixa na conta a receber/pagar vinculada
+      if(vinculoId) {
+        const isReceber = (contasReceber||[]).some(c=>c.id===vinculoId);
+        if(isReceber) {
+          await sb(`contas_receber?id=eq.${vinculoId}`, { method:"PATCH", body:JSON.stringify({ status:"recebido", recebido_em: form.data_competencia }) });
+        } else {
+          await sb(`contas_pagar?id=eq.${vinculoId}`, { method:"PATCH", body:JSON.stringify({ status:"pago", pago_em: form.data_competencia }) });
+        }
+      }
       setLançados(prev => new Set([...prev, modalLanc.fitid]));
+      setVinculoId("");
       setModalLanc(null);
       // NÃO chama onRefresh() aqui para manter o extrato OFX na tela.
       // onRefresh() é chamado ao fechar o importador.
@@ -1297,6 +1311,22 @@ function ImportadorOFX({ conta, lancamentos, categorias, clientes, fornecedores,
                 {projetos.map(p=><option style={optionStyle} key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             </Campo>
+
+            {/* Vínculo com Contas a Receber / Pagar */}
+            {(form.tipo==="entrada" ? (contasReceber||[]) : (contasPagar||[])).filter(c=>c.status!=="recebido"&&c.status!=="pago").length > 0 && (
+              <Campo label={form.tipo==="entrada" ? "Dar baixa em Contas a Receber (opcional)" : "Dar baixa em Contas a Pagar (opcional)"}>
+                <select style={{ ...selectStyle, borderColor: vinculoId ? "#34d399" : undefined }}
+                  value={vinculoId} onChange={e=>setVinculoId(e.target.value)}>
+                  <option style={optionStyle} value="">— Não vincular —</option>
+                  {(form.tipo==="entrada" ? (contasReceber||[]) : (contasPagar||[]))
+                    .filter(c=>c.status!=="recebido"&&c.status!=="pago")
+                    .map(c=><option style={optionStyle} key={c.id} value={c.id}>
+                      {c.descricao} — {Number(c.valor).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} · venc. {c.vencimento?.split("-").reverse().join("/")}
+                    </option>)}
+                </select>
+                {vinculoId && <div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ Ao lançar, essa conta será marcada como {form.tipo==="entrada"?"recebida":"paga"} automaticamente</div>}
+              </Campo>
+            )}
 
             <BtnRow onCancel={()=>setModalLanc(null)} onSave={salvarLanc} loading={loading} />
           </div>
@@ -3358,7 +3388,7 @@ export default function App() {
               {tela==="clientes"     && <Clientes clientes={dados.clientes} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
               {tela==="fornecedores" && <Fornecedores fornecedores={dados.fornecedores} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
               {tela==="projetos"     && <Projetos projetos={dados.projetos} clientes={dados.clientes} empresaId={empresa.id} onRefresh={carregar} membro={membro} />}
-              {tela==="contas"       && <Contas contas={dados.contas} empresaId={empresa.id} onRefresh={carregar} membro={membro} lancamentos={dados.lancamentos} categorias={dados.categorias} clientes={dados.clientes} fornecedores={dados.fornecedores} projetos={dados.projetos} userId={user.id} />}
+              {tela==="contas"       && <Contas contas={dados.contas} empresaId={empresa.id} onRefresh={carregar} membro={membro} lancamentos={dados.lancamentos} categorias={dados.categorias} clientes={dados.clientes} fornecedores={dados.fornecedores} projetos={dados.projetos} userId={user.id} contasReceber={dados.contasReceber} contasPagar={dados.contasPagar} />}
               
               
               {tela==="relatorios"    && <Relatorios {...props} />}
