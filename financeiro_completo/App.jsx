@@ -198,7 +198,7 @@ const MENU = [
   { id:"usuarios",     label:"Usuários",      icon:"👥", single:true, apenasAdmin:true },
 ];
 
-function Sidebar({ tela, setTela, user, empresa, membro, onLogout }) {
+function Sidebar({ tela, setTela, user, empresa, membro, onLogout, tema, trocarTema }) {
   const telaToGrupo = (t) => { for (const m of MENU) { if (!m.single && m.items?.some(i=>i.id===t)) return m.id; } return null; };
   const [abertos, setAbertos] = useState(() => { const g=telaToGrupo(tela); const init={}; MENU.forEach(m=>{ if(!m.single) init[m.id]=m.id===g; }); return init; });
   const toggle = (id) => setAbertos(prev=>({...prev,[id]:!prev[id]}));
@@ -248,7 +248,12 @@ function Sidebar({ tela, setTela, user, empresa, membro, onLogout }) {
         })}
       </nav>
       <div style={{ padding:"12px 10px", borderTop:"1px solid rgba(255,255,255,0.06)" }}>
-        <button onClick={onLogout} style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"9px 11px", borderRadius:8, border:"none", background:"transparent", color:"rgba(255,255,255,0.35)", fontSize:13, cursor:"pointer" }}>🚪 Sair</button>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <button onClick={onLogout} style={{ flex:1, display:"flex", alignItems:"center", gap:9, padding:"9px 11px", borderRadius:8, border:"none", background:"transparent", color:"rgba(255,255,255,0.35)", fontSize:13, cursor:"pointer" }}>🚪 Sair</button>
+          <button onClick={trocarTema} title={tema==="escuro"?"Modo claro":"Modo escuro"} style={{ width:34, height:34, borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.05)", fontSize:15, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            {tema==="escuro" ? "☀️" : "🌙"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -3521,8 +3526,8 @@ export default function App() {
   const props = { ...dados, empresaId:empresa.id, userId:user.id, onRefresh:carregar, membro };
 
   return (
-    <div style={{ display:"flex", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", background:"#0a0a0f", color:"#fff", transition:"background 0.3s, color 0.3s" }}>
-      <Sidebar tela={tela} setTela={setTela} user={user} empresa={empresa} membro={membro} onLogout={logout} />
+    <div style={{ display:"flex", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", background:"#0a0a0f", color:"#fff", transition:"filter 0.3s", filter: tema==="claro" ? "invert(1) hue-rotate(180deg)" : "none" }}>
+      <Sidebar tela={tela} setTela={setTela} user={user} empresa={empresa} membro={membro} onLogout={logout} tema={tema} trocarTema={trocarTema} />
       <div style={{ flex:1, overflowY:"auto" }}>
         <div style={{ padding:"28px 32px", maxWidth:1100 }}>
           {carregando ? (
