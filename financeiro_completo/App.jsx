@@ -604,8 +604,31 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
     parcelas:2,          // para modo parcelado
     recorrencia_meses:12 // para modo recorrente
   });
+  const [editando, setEditando] = useState(null);
+  const [nfEdit, setNfEdit] = useState(null);
+  const [compEdit, setCompEdit] = useState(null);
   const podeExcluir = membro?.perfil !== "visualizador";
   const podeCriar = membro?.perfil !== "visualizador";
+
+  const abrirEditar = (c) => {
+    setEditando({ id:c.id, descricao:c.descricao||"", valor:String(c.valor||""), vencimento:c.vencimento||"", tipo_custo:c.tipo_custo||"variavel", categoria_id:c.categoria_id||"", subcategoria_id:c.subcategoria_id||"", observacao:c.observacao||"", nf_url:c.nf_url||null, nf_nome:c.nf_nome||null, comprovante_url:c.comprovante_url||null, comprovante_nome:c.comprovante_nome||null });
+    setNfEdit(null); setCompEdit(null);
+  };
+
+  const salvarEdicao = async () => {
+    if(!editando.descricao||!editando.valor) return alert("Preencha descrição e valor.");
+    setLoading(true);
+    try {
+      let nf_url=editando.nf_url, nf_nome=editando.nf_nome;
+      let comprovante_url=editando.comprovante_url, comprovante_nome=editando.comprovante_nome;
+      if(nfEdit){ const r=await uploadArquivo(nfEdit,userId); nf_url=r.url; nf_nome=r.nome; }
+      if(compEdit){ const r=await uploadArquivo(compEdit,userId); comprovante_url=r.url; comprovante_nome=r.nome; }
+      await sb(`contas_pagar?id=eq.${editando.id}`, { method:"PATCH", body:JSON.stringify({ descricao:editando.descricao, valor:Number(editando.valor), vencimento:editando.vencimento, tipo_custo:editando.tipo_custo, categoria_id:editando.categoria_id||null, subcategoria_id:editando.subcategoria_id||null, observacao:editando.observacao||null, nf_url, nf_nome, comprovante_url, comprovante_nome }) });
+      setEditando(null); setNfEdit(null); setCompEdit(null);
+      carregar();
+    } catch(e){ alert("Erro: "+e.message); }
+    setLoading(false);
+  };
 
   const carregar = useCallback(async () => {
     setCarregando(true);
