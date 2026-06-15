@@ -924,9 +924,10 @@ function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias,
             <div style={{ fontSize:14, fontWeight:600, color:"#fff", marginBottom:2 }}>{c.nome}</div>
             <div style={{ fontSize:11, color:"rgba(255,255,255,0.35)", marginBottom:4 }}>{c.banco}</div>
             <div style={{ fontSize:20, fontWeight:600, color:"#fff", marginBottom:6 }}>{fmt(saldoDinamico(c))}</div>
-            <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginBottom:10, display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
               Saldo inicial: {fmt(Number(c.saldo))}
               {podeCriar && <button onClick={()=>setEditSaldo({id:c.id, saldo:c.saldo})} style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:4, padding:"1px 6px", color:"#818cf8", fontSize:9, cursor:"pointer" }}>✏ editar</button>}
+              {c.data_saldo && <span style={{ marginLeft:4, color:"rgba(255,255,255,0.2)" }}>· OFX: {new Date(c.data_saldo+"T12:00:00").toLocaleDateString("pt-BR")}</span>}
             </div>
             <div style={{ height:3, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
               <div style={{ width:`${total?(Math.min(saldoDinamico(c)/total,1)*100):0}%`, height:"100%", background:c.cor||"#6366f1", borderRadius:999 }} />
