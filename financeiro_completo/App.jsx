@@ -1747,7 +1747,7 @@ const SUBGRUPOS = {
 const fmtPct = (v) => `${Number(v).toFixed(1)}%`;
 
 // ── Dashboard ERP ──────────────────────────────────────────────────────────────
-function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, projetos, setTela }) {
+function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, projetos, setTela, contasReceber, contasPagar }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
   const [inicio, setInicio] = useState(primeiroDia);
@@ -1891,6 +1891,39 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
           </div>
         </div>
       </div>
+
+      {/* Previsão Financeira — Contas a Receber e Pagar no período */}
+      {(()=>{
+        const cr = (contasReceber||[]).filter(c=>c.status!=="recebido"&&c.status!=="cancelado"&&(!inicio||c.vencimento>=inicio)&&(!fim||c.vencimento<=fim));
+        const cp = (contasPagar||[]).filter(c=>c.status!=="pago"&&c.status!=="cancelado"&&(!inicio||c.vencimento>=inicio)&&(!fim||c.vencimento<=fim));
+        const totalCR = cr.reduce((s,c)=>s+Number(c.valor),0);
+        const totalCP = cp.reduce((s,c)=>s+Number(c.valor),0);
+        const resultado = totalCR - totalCP;
+        const corRes = resultado>=0?"#34d399":"#f87171";
+        return (
+          <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Previsão do Período</div>
+            <div style={{ display:"flex", alignItems:"center", gap:24, flexWrap:"wrap" }}>
+              <div style={{ flex:1, minWidth:140 }}>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>A Receber</div>
+                <div style={{ fontSize:18, fontWeight:600, color:"#34d399" }}>{fmt(totalCR)}</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{cr.length} conta{cr.length!==1?"s":""} em aberto</div>
+              </div>
+              <div style={{ width:"1px", height:40, background:"rgba(255,255,255,0.07)" }} />
+              <div style={{ flex:1, minWidth:140 }}>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>A Pagar</div>
+                <div style={{ fontSize:18, fontWeight:600, color:"#f87171" }}>{fmt(totalCP)}</div>
+                <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{cp.length} conta{cp.length!==1?"s":""} em aberto</div>
+              </div>
+              <div style={{ width:"1px", height:40, background:"rgba(255,255,255,0.07)" }} />
+              <div style={{ flex:1, minWidth:140 }}>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>RESULTADO PREVISTO</div>
+                <div style={{ fontSize:26, fontWeight:700, color:corRes }}>{fmt(resultado)}</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Tabelas */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
@@ -3535,7 +3568,7 @@ export default function App() {
             <div style={{ color:"rgba(255,255,255,0.3)", fontSize:14, paddingTop:40 }}>Carregando...</div>
           ) : (
             <>
-              {tela==="dashboard"    && <Dashboard {...props} subcategorias={dados.subcategorias} setTela={setTela} />}
+              {tela==="dashboard"    && <Dashboard {...props} subcategorias={dados.subcategorias} setTela={setTela} contasReceber={dados.contasReceber} contasPagar={dados.contasPagar} />}
               {tela==="lancamentos"  && <Lancamentos {...props} />}
               {tela==="contas_pagar"   && <ContasPagar {...props} />}
               {tela==="contas_receber" && <ContasReceber categorias={dados.categorias} clientes={dados.clientes} projetos={dados.projetos} contas={dados.contas} empresaId={empresa.id} userId={user.id} onRefresh={carregar} membro={membro} />}
