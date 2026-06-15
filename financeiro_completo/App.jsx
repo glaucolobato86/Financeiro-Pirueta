@@ -1904,14 +1904,20 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
           <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
             <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Previsão do Período</div>
             <div style={{ display:"flex", alignItems:"center", gap:24, flexWrap:"wrap" }}>
-              <div style={{ flex:1, minWidth:140 }}>
-                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>A Receber</div>
+              <div onClick={()=>setTela("contas_receber")}
+                style={{ flex:1, minWidth:140, cursor:"pointer", borderRadius:8, padding:"8px 10px", transition:"background 0.15s" }}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(52,211,153,0.07)"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>A Receber <span style={{ fontSize:9, color:"#34d399" }}>→ ver tudo</span></div>
                 <div style={{ fontSize:18, fontWeight:600, color:"#34d399" }}>{fmt(totalCR)}</div>
                 <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{cr.length} conta{cr.length!==1?"s":""} em aberto</div>
               </div>
               <div style={{ width:"1px", height:40, background:"rgba(255,255,255,0.07)" }} />
-              <div style={{ flex:1, minWidth:140 }}>
-                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>A Pagar</div>
+              <div onClick={()=>setTela("contas_pagar")}
+                style={{ flex:1, minWidth:140, cursor:"pointer", borderRadius:8, padding:"8px 10px", transition:"background 0.15s" }}
+                onMouseEnter={e=>e.currentTarget.style.background="rgba(248,113,113,0.07)"}
+                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)", marginBottom:4 }}>A Pagar <span style={{ fontSize:9, color:"#f87171" }}>→ ver tudo</span></div>
                 <div style={{ fontSize:18, fontWeight:600, color:"#f87171" }}>{fmt(totalCP)}</div>
                 <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{cp.length} conta{cp.length!==1?"s":""} em aberto</div>
               </div>
