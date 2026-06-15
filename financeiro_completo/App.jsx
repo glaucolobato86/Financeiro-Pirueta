@@ -248,12 +248,7 @@ function Sidebar({ tela, setTela, user, empresa, membro, onLogout, tema, trocarT
         })}
       </nav>
       <div style={{ padding:"12px 10px", borderTop:"1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          <button onClick={onLogout} style={{ flex:1, display:"flex", alignItems:"center", gap:9, padding:"9px 11px", borderRadius:8, border:"none", background:"transparent", color:"rgba(255,255,255,0.35)", fontSize:13, cursor:"pointer" }}>🚪 Sair</button>
-          <button onClick={trocarTema} title={tema==="escuro"?"Modo claro":"Modo escuro"} style={{ width:34, height:34, borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.05)", fontSize:15, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-            {tema==="escuro" ? "☀️" : "🌙"}
-          </button>
-        </div>
+        <button onClick={onLogout} style={{ width:"100%", display:"flex", alignItems:"center", gap:9, padding:"9px 11px", borderRadius:8, border:"none", background:"transparent", color:"rgba(255,255,255,0.35)", fontSize:13, cursor:"pointer" }}>🚪 Sair</button>
       </div>
     </div>
   );
@@ -3529,7 +3524,13 @@ export default function App() {
     <div style={{ display:"flex", minHeight:"100vh", fontFamily:"'DM Sans', sans-serif", background:"#0a0a0f", color:"#fff", transition:"filter 0.3s", filter: tema==="claro" ? "invert(1) hue-rotate(180deg)" : "none" }}>
       <Sidebar tela={tela} setTela={setTela} user={user} empresa={empresa} membro={membro} onLogout={logout} tema={tema} trocarTema={trocarTema} />
       <div style={{ flex:1, overflowY:"auto" }}>
-        <div style={{ padding:"28px 32px", maxWidth:1100 }}>
+        <div style={{ display:"flex", justifyContent:"flex-end", padding:"10px 32px 0" }}>
+          <button onClick={trocarTema} title={tema==="escuro"?"Modo claro":"Modo escuro"}
+            style={{ width:34, height:34, borderRadius:8, border:"1px solid rgba(255,255,255,0.12)", background:"rgba(255,255,255,0.06)", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            {tema==="escuro" ? "☀️" : "🌙"}
+          </button>
+        </div>
+        <div style={{ padding:"8px 32px 28px", maxWidth:1100 }}>
           {carregando ? (
             <div style={{ color:"rgba(255,255,255,0.3)", fontSize:14, paddingTop:40 }}>Carregando...</div>
           ) : (
