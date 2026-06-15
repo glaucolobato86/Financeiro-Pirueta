@@ -304,7 +304,7 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
   const [nf, setNf] = useState(null);
   const [comp, setComp] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState(()=> navFiltro?.status || "todos");
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDiaMes = new Date().toISOString().slice(0,7)+"-01";
   const [dataInicio, setDataInicio] = useState(()=> navFiltro?.dataInicio || new Date().toISOString().slice(0,7)+"-01");
@@ -418,7 +418,7 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
     setLoading(false);
   };
 
-  const filtrada = lista.filter(c=>(filtroStatus==="todos"||getStatus(c)===filtroStatus)&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
+  const filtrada = lista.filter(c=>(filtroStatus==="todos"||(filtroStatus==="nao_recebido"?getStatus(c)!=="recebido":getStatus(c)===filtroStatus))&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
   const totalAberto   = filtrada.filter(c=>getStatus(c)!=="recebido").reduce((s,c)=>s+Number(c.valor),0);
   const totalRecebido = filtrada.filter(c=>c.status==="recebido").reduce((s,c)=>s+Number(c.valor),0);
   const totalGeral    = filtrada.reduce((s,c)=>s+Number(c.valor),0);
@@ -593,7 +593,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const [nf, setNf] = useState(null);
   const [comp, setComp] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState(()=> navFiltro?.status || "todos");
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDiaMes = new Date().toISOString().slice(0,7)+"-01";
   const [dataInicio, setDataInicio] = useState(()=> navFiltro?.dataInicio || new Date().toISOString().slice(0,7)+"-01");
@@ -685,7 +685,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
     setLoading(false);
   };
 
-  const lista=contas.filter(c=>(filtroStatus==="todos"||getStatus(c)===filtroStatus)&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
+  const lista=contas.filter(c=>(filtroStatus==="todos"||(filtroStatus==="nao_pago"?getStatus(c)!=="pago":getStatus(c)===filtroStatus))&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
   const totais={fixo:0,variavel:0,investimento:0,outros:0};
   contas.filter(c=>getStatus(c)!=="pago").forEach(c=>{totais[c.tipo_custo]=(totais[c.tipo_custo]||0)+Number(c.valor);});
   const totalGeral=Object.values(totais).reduce((s,v)=>s+v,0);
@@ -1904,7 +1904,7 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
           <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
             <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Previsão do Período</div>
             <div style={{ display:"flex", alignItems:"center", gap:24, flexWrap:"wrap" }}>
-              <div onClick={()=>{ setNavFiltro({dataInicio:inicio, dataFim:fim}); setTela("contas_receber"); }}
+              <div onClick={()=>{ setNavFiltro({dataInicio:inicio, dataFim:fim, status:"nao_recebido"}); setTela("contas_receber"); }}
                 style={{ flex:1, minWidth:140, cursor:"pointer", borderRadius:8, padding:"8px 10px", transition:"background 0.15s" }}
                 onMouseEnter={e=>e.currentTarget.style.background="rgba(52,211,153,0.07)"}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
@@ -1913,7 +1913,7 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
                 <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{cr.length} conta{cr.length!==1?"s":""} em aberto</div>
               </div>
               <div style={{ width:"1px", height:40, background:"rgba(255,255,255,0.07)" }} />
-              <div onClick={()=>{ setNavFiltro({dataInicio:inicio, dataFim:fim}); setTela("contas_pagar"); }}
+              <div onClick={()=>{ setNavFiltro({dataInicio:inicio, dataFim:fim, status:"nao_pago"}); setTela("contas_pagar"); }}
                 style={{ flex:1, minWidth:140, cursor:"pointer", borderRadius:8, padding:"8px 10px", transition:"background 0.15s" }}
                 onMouseEnter={e=>e.currentTarget.style.background="rgba(248,113,113,0.07)"}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
