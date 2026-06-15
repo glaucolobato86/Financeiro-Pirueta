@@ -307,8 +307,8 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDiaMes = new Date().toISOString().slice(0,7)+"-01";
-  const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
-  const [dataFim, setDataFim] = useState(hoje);
+  const [dataInicio, setDataInicio] = useState(()=>new Date().toISOString().slice(0,7)+"-01");
+  const [dataFim, setDataFim] = useState(()=>new Date().toISOString().split("T")[0]);
   const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   const fmtData = (data) => { const[y,m,d]=data.split("-"); return{dia:d,mes:meses[Number(m)-1],ano:y}; };
 
@@ -419,8 +419,9 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
   };
 
   const filtrada = lista.filter(c=>(filtroStatus==="todos"||getStatus(c)===filtroStatus)&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
-  const totalAberto = lista.filter(c=>getStatus(c)!=="recebido").reduce((s,c)=>s+Number(c.valor),0);
-  const totalRecebido = lista.filter(c=>c.status==="recebido").reduce((s,c)=>s+Number(c.valor),0);
+  const totalAberto   = filtrada.filter(c=>getStatus(c)!=="recebido").reduce((s,c)=>s+Number(c.valor),0);
+  const totalRecebido = filtrada.filter(c=>c.status==="recebido").reduce((s,c)=>s+Number(c.valor),0);
+  const totalGeral    = filtrada.reduce((s,c)=>s+Number(c.valor),0);
   const porDia = {};
   filtrada.forEach(c=>{ if(!porDia[c.vencimento])porDia[c.vencimento]=[]; porDia[c.vencimento].push(c); });
   const diasOrdenados = Object.entries(porDia).sort((a,b)=>a[0].localeCompare(b[0]));
@@ -438,7 +439,7 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
       {/* Totais */}
       <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"14px 20px", marginBottom:16, display:"flex", gap:28, flexWrap:"wrap", alignItems:"center" }}>
         <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.5)", textTransform:"uppercase", letterSpacing:"0.06em" }}>Resumo</div>
-        {[["A Receber",totalAberto,"#818cf8"],["Já Recebido",totalRecebido,"#34d399"],["Total",totalAberto+totalRecebido,"#fff"]].map(([l,v,c])=>(
+        {[["A Receber",totalAberto,"#818cf8"],["Já Recebido",totalRecebido,"#34d399"],["Total",totalGeral,"#fff"]].map(([l,v,c])=>(
           <div key={l}><div style={{ fontSize:10, color:"rgba(255,255,255,0.35)", textTransform:"uppercase", marginBottom:3 }}>{l}</div><div style={{ fontSize:15, fontWeight:600, color:c }}>{fmt(v)}</div></div>
         ))}
       </div>
@@ -595,8 +596,8 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDiaMes = new Date().toISOString().slice(0,7)+"-01";
-  const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
-  const [dataFim, setDataFim] = useState(hoje);
+  const [dataInicio, setDataInicio] = useState(()=>new Date().toISOString().slice(0,7)+"-01");
+  const [dataFim, setDataFim] = useState(()=>new Date().toISOString().split("T")[0]);
 
 
   const [form, setForm] = useState({ descricao:"", valor:"", vencimento:"", categoria_id:"", subcategoria_id:"", tipo_custo:"variavel", observacao:"",
@@ -1799,11 +1800,17 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
 
   const porCatPizza = useMemo(()=>{
     if(pTipo === "todos") {
-      // Mostra os grupos principais juntos
-      return Object.entries(TIPOS_PIZZA).map(([tipo, info], i)=>({
-        id: tipo, nome: info.label, cor: info.cor,
-        total: filtrados.filter(l=>l.tipo_lancamento===tipo).reduce((s,l)=>s+Number(l.valor),0)
-      })).filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+      // Visão Geral: Receita Op., Despesas Op., Resultado — Repasse aparece mas separado
+      const recOpTotal = filtrados.filter(l=>l.tipo_lancamento==="receita_operacional").reduce((s,l)=>s+Number(l.valor),0);
+      const despOpTotal = filtrados.filter(l=>l.tipo_lancamento==="despesa_operacional").reduce((s,l)=>s+Number(l.valor),0);
+      const repasseTotal = filtrados.filter(l=>l.tipo_lancamento==="repasse_terceiros").reduce((s,l)=>s+Number(l.valor),0);
+      const resultadoTotal = recOpTotal - despOpTotal;
+      const items = [
+        { id:"receita_operacional", nome:"Receitas Op.", cor:"#6366f1", total:recOpTotal },
+        { id:"despesa_operacional", nome:"Despesas Op.", cor:"#ef4444", total:despOpTotal },
+        { id:"repasse_terceiros",   nome:"Repasses",    cor:"#f97316", total:repasseTotal },
+      ].filter(c=>c.total>0).sort((a,b)=>b.total-a.total);
+      return { items, resultado:resultadoTotal, recOp:recOpTotal, despOp:despOpTotal, repasse:repasseTotal };
     }
     return categorias.filter(c=>c.grupo===pTipo).map((cat,i)=>({
       ...cat, cor: PALETA[i%PALETA.length],
@@ -1950,10 +1957,85 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
 
         {/* Pizza + Legenda */}
         {(()=>{
-          const dados = pCatSel ? porSubPizza : porCatPizza;
-          const total = dados.reduce((s,d)=>s+d.total,0);
+          // Visão Geral tem formato especial com resultado
+          if(pTipo==="todos" && !pCatSel) {
+            const dadosTodos = porCatPizza;
+            if(!dadosTodos || !dadosTodos.items) return null;
+            const { items, resultado, recOp: recTotal, despOp: despTotal, repasse: repTotal } = dadosTodos;
+            const total = items.reduce((s,d)=>s+d.total,0);
+            if(total===0) return <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}><div style={{ fontSize:28, marginBottom:8 }}>◎</div><div style={{ fontSize:13 }}>Sem dados no período</div></div>;
+            let angulo=0;
+            const cx=100,cy=100,raio=85,furo=42;
+            const fatias = items.map(d=>{
+              const pct=d.total/total;
+              const rad=pct*2*Math.PI;
+              const x1o=cx+raio*Math.sin(angulo), y1o=cy-raio*Math.cos(angulo);
+              const x1i=cx+furo*Math.sin(angulo), y1i=cy-furo*Math.cos(angulo);
+              angulo+=rad;
+              const x2o=cx+raio*Math.sin(angulo), y2o=cy-raio*Math.cos(angulo);
+              const x2i=cx+furo*Math.sin(angulo), y2i=cy-furo*Math.cos(angulo);
+              const large=rad>Math.PI?1:0;
+              const path=`M${x1i.toFixed(1)},${y1i.toFixed(1)} L${x1o.toFixed(1)},${y1o.toFixed(1)} A${raio},${raio} 0 ${large},1 ${x2o.toFixed(1)},${y2o.toFixed(1)} L${x2i.toFixed(1)},${y2i.toFixed(1)} A${furo},${furo} 0 ${large},0 ${x1i.toFixed(1)},${y1i.toFixed(1)} Z`;
+              return {...d, path, pct};
+            });
+            const corResult = resultado>=0?"#34d399":"#f87171";
+            return (
+              <div style={{ display:"grid", gridTemplateColumns:"200px 1fr", gap:24, alignItems:"start" }}>
+                <div style={{ position:"relative" }}>
+                  <svg width={200} height={200} viewBox="0 0 200 200">
+                    {fatias.map((f,i)=>(
+                      <path key={i} d={f.path} fill={f.cor||"#6366f1"} stroke="#1a1a2e" strokeWidth={2}
+                        style={{ cursor:"pointer", transition:"opacity 0.15s" }}
+                        onClick={()=>setPTipo(f.id)}
+                        onMouseEnter={e=>e.target.style.opacity="0.8"}
+                        onMouseLeave={e=>e.target.style.opacity="1"}>
+                        <title>{f.nome}: {fmt(f.total)}</title>
+                      </path>
+                    ))}
+                    <text x={cx} y={cy-6} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.4)" fontFamily="DM Sans">RESULTADO</text>
+                    <text x={cx} y={cy+10} textAnchor="middle" fontSize="9" fill={corResult} fontFamily="DM Sans" fontWeight="bold">{fmt(resultado)}</text>
+                  </svg>
+                  <div style={{ position:"absolute", bottom:-16, left:0, right:0, textAlign:"center", fontSize:10, color:"rgba(255,255,255,0.25)" }}>clique para detalhar</div>
+                </div>
+                <div>
+                  {fatias.map((f,i)=>(
+                    <div key={i} onClick={()=>setPTipo(f.id)}
+                      style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 10px", borderRadius:8, marginBottom:4, cursor:"pointer", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.04)" }}
+                      onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.07)"}
+                      onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.03)"}>
+                      <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                        <div style={{ width:10, height:10, borderRadius:3, background:f.cor, flexShrink:0 }} />
+                        <span style={{ fontSize:12, color:"rgba(255,255,255,0.8)" }}>{f.nome}</span>
+                      </div>
+                      <div style={{ textAlign:"right" }}>
+                        <div style={{ fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.95)" }}>{fmt(f.total)}</div>
+                        <div style={{ fontSize:10, color:"rgba(255,255,255,0.3)" }}>{(f.pct*100).toFixed(1)}%</div>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ borderTop:"1px solid rgba(255,255,255,0.08)", marginTop:8, paddingTop:8 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", padding:"4px 10px", marginBottom:2 }}>
+                      <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>Receitas Op.</span>
+                      <span style={{ fontSize:11, fontWeight:600, color:"#6366f1" }}>{fmt(recTotal)}</span>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", padding:"4px 10px", marginBottom:2 }}>
+                      <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>(−) Despesas Op.</span>
+                      <span style={{ fontSize:11, fontWeight:600, color:"#ef4444" }}>{fmt(despTotal)}</span>
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"space-between", padding:"6px 10px", background:"rgba(255,255,255,0.04)", borderRadius:6, marginTop:4 }}>
+                      <span style={{ fontSize:12, color:"rgba(255,255,255,0.6)", fontWeight:600 }}>= Resultado</span>
+                      <span style={{ fontSize:14, fontWeight:700, color:corResult }}>{fmt(resultado)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
 
-          if(!dados.length||total===0) return (
+          const dados = pCatSel ? porSubPizza : porCatPizza;
+          const total = Array.isArray(dados) ? dados.reduce((s,d)=>s+d.total,0) : 0;
+
+          if(!dados||!dados.length||total===0) return (
             <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>
               <div style={{ fontSize:28, marginBottom:8 }}>◎</div>
               <div style={{ fontSize:13 }}>Sem dados no período</div>
