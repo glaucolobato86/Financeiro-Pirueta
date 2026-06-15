@@ -306,6 +306,9 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
   const [preview, setPreview] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDiaMes = new Date().toISOString().slice(0,7)+"-01";
+  const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
+  const [dataFim, setDataFim] = useState(hoje);
   const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   const fmtData = (data) => { const[y,m,d]=data.split("-"); return{dia:d,mes:meses[Number(m)-1],ano:y}; };
 
@@ -415,7 +418,7 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
     setLoading(false);
   };
 
-  const filtrada = lista.filter(c=>filtroStatus==="todos"||getStatus(c)===filtroStatus);
+  const filtrada = lista.filter(c=>(filtroStatus==="todos"||getStatus(c)===filtroStatus)&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
   const totalAberto = lista.filter(c=>getStatus(c)!=="recebido").reduce((s,c)=>s+Number(c.valor),0);
   const totalRecebido = lista.filter(c=>c.status==="recebido").reduce((s,c)=>s+Number(c.valor),0);
   const porDia = {};
@@ -441,6 +444,14 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
       </div>
 
       {/* Filtros */}
+      <div style={{ display:"flex", gap:8, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
+        <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.06em" }}>Período</span>
+        <input type="date" value={dataInicio} onChange={e=>setDataInicio(e.target.value)} style={{ ...inputStyle, width:140, padding:"5px 10px", fontSize:12 }} />
+        <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>até</span>
+        <input type="date" value={dataFim} onChange={e=>setDataFim(e.target.value)} style={{ ...inputStyle, width:140, padding:"5px 10px", fontSize:12 }} />
+        <button onClick={()=>{setDataInicio(primeiroDiaMes);setDataFim(hoje);}} style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês atual</button>
+        <button onClick={()=>{setDataInicio("");setDataFim("");}} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Tudo</button>
+      </div>
       <div style={{ display:"flex", gap:7, marginBottom:16 }}>
         {[["todos","Todos"],["aberto","Em aberto"],["avencer","A vencer"],["vencido","Vencidos"],["recebido","Recebidos"]].map(([v,l])=>(
           <button key={v} onClick={()=>setFiltroStatus(v)} style={{ padding:"6px 12px", borderRadius:7, border:`1px solid ${filtroStatus===v?"#6366f1":"rgba(255,255,255,0.1)"}`, background:filtroStatus===v?"rgba(99,102,241,0.15)":"transparent", color:filtroStatus===v?"#818cf8":"rgba(255,255,255,0.4)", fontSize:12, cursor:"pointer" }}>{l}</button>
@@ -583,6 +594,9 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const [preview, setPreview] = useState(null);
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const hoje = new Date().toISOString().split("T")[0];
+  const primeiroDiaMes = new Date().toISOString().slice(0,7)+"-01";
+  const [dataInicio, setDataInicio] = useState(primeiroDiaMes);
+  const [dataFim, setDataFim] = useState(hoje);
 
 
   const [form, setForm] = useState({ descricao:"", valor:"", vencimento:"", categoria_id:"", subcategoria_id:"", tipo_custo:"variavel", observacao:"",
@@ -647,7 +661,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
     setLoading(false);
   };
 
-  const lista=contas.filter(c=>filtroStatus==="todos"||getStatus(c)===filtroStatus);
+  const lista=contas.filter(c=>(filtroStatus==="todos"||getStatus(c)===filtroStatus)&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
   const totais={fixo:0,variavel:0,investimento:0,outros:0};
   contas.filter(c=>getStatus(c)!=="pago").forEach(c=>{totais[c.tipo_custo]=(totais[c.tipo_custo]||0)+Number(c.valor);});
   const totalGeral=Object.values(totais).reduce((s,v)=>s+v,0);
@@ -675,6 +689,14 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
         ))}
       </div>
 
+      <div style={{ display:"flex", gap:8, marginBottom:12, alignItems:"center", flexWrap:"wrap" }}>
+        <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.06em" }}>Período</span>
+        <input type="date" value={dataInicio} onChange={e=>setDataInicio(e.target.value)} style={{ ...inputStyle, width:140, padding:"5px 10px", fontSize:12 }} />
+        <span style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>até</span>
+        <input type="date" value={dataFim} onChange={e=>setDataFim(e.target.value)} style={{ ...inputStyle, width:140, padding:"5px 10px", fontSize:12 }} />
+        <button onClick={()=>{setDataInicio(primeiroDiaMes);setDataFim(hoje);}} style={{ background:"rgba(99,102,241,0.1)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:7, padding:"5px 12px", color:"#818cf8", fontSize:11, cursor:"pointer" }}>Mês atual</button>
+        <button onClick={()=>{setDataInicio("");setDataFim("");}} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:7, padding:"5px 12px", color:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>Tudo</button>
+      </div>
       <div style={{ display:"flex", gap:7, marginBottom:16 }}>
         {[["todos","Todos","#6366f1"],["vencido","Vencidos","#f87171"],["avencer","A vencer","#fbbf24"],["aberto","Em aberto","#818cf8"],["pago","Pagos","#34d399"]].map(([v,l,c])=>(
           <button key={v} onClick={()=>setFiltroStatus(v)} style={{ padding:"5px 13px", borderRadius:6, border:`1px solid ${filtroStatus===v?c:"rgba(255,255,255,0.1)"}`, background:filtroStatus===v?c+"22":"transparent", color:filtroStatus===v?c:"rgba(255,255,255,0.4)", fontSize:12, cursor:"pointer" }}>{l}</button>
