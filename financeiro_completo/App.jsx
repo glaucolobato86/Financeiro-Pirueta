@@ -3529,12 +3529,12 @@ export default function App() {
         sb(`lancamentos?empresa_id=eq.${eid}&order=data_competencia.desc`),
         sb(`contas?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`categorias?empresa_id=eq.${eid}&order=ordem.asc,nome.asc`),
-        sb(`contas_receber?empresa_id=eq.${eid}&order=vencimento.asc`),
+        sb(`contas_receber?empresa_id=eq.${eid}&order=vencimento.asc&limit=10000`),
         sb(`subcategorias?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`clientes?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`fornecedores?empresa_id=eq.${eid}&order=nome.asc`),
         sb(`projetos?empresa_id=eq.${eid}&order=created_at.desc`),
-        sb(`contas_pagar?empresa_id=eq.${eid}&order=vencimento.asc`),
+        sb(`contas_pagar?empresa_id=eq.${eid}&order=vencimento.asc&limit=10000`),
       ]);
       setDados({ lancamentos, contas, categorias, subcategorias, clientes, fornecedores, projetos, contasPagar, contasReceber });
     } catch(e) { console.error(e); }
