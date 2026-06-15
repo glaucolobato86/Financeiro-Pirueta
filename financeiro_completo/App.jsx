@@ -419,7 +419,7 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
   };
 
   const filtrada = lista.filter(c=>(filtroStatus==="todos"||(filtroStatus==="nao_recebido"?c.status!=="recebido":getStatus(c)===filtroStatus))&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
-  const totalAberto   = filtrada.filter(c=>getStatus(c)!=="recebido").reduce((s,c)=>s+Number(c.valor),0);
+  const totalAberto   = filtrada.filter(c=>c.status!=="recebido"&&c.status!=="cancelado").reduce((s,c)=>s+Number(c.valor),0);
   const totalRecebido = filtrada.filter(c=>c.status==="recebido").reduce((s,c)=>s+Number(c.valor),0);
   const totalGeral    = filtrada.reduce((s,c)=>s+Number(c.valor),0);
   const porDia = {};
@@ -687,7 +687,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
 
   const lista=contas.filter(c=>(filtroStatus==="todos"||(filtroStatus==="nao_pago"?c.status!=="pago":getStatus(c)===filtroStatus))&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
   const totais={fixo:0,variavel:0,investimento:0,outros:0};
-  contas.filter(c=>getStatus(c)!=="pago").forEach(c=>{totais[c.tipo_custo]=(totais[c.tipo_custo]||0)+Number(c.valor);});
+  contas.filter(c=>c.status!=="pago"&&c.status!=="cancelado").forEach(c=>{totais[c.tipo_custo]=(totais[c.tipo_custo]||0)+Number(c.valor);});
   const totalGeral=Object.values(totais).reduce((s,v)=>s+v,0);
   const porDia={};
   lista.forEach(c=>{if(!porDia[c.vencimento])porDia[c.vencimento]=[];porDia[c.vencimento].push(c);});
