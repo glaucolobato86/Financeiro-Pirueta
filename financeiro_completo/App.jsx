@@ -296,11 +296,11 @@ function PreviewModal({ preview, onClose }) {
 }
 
 // ── Contas a Receber ────────────────────────────────────────────────────────
-function ContasReceber({ categorias, clientes, projetos, contas, empresaId, userId, onRefresh, membro, navFiltro, onNavFiltroUsado }) {
-  const [lista, setLista] = useState([]);
+function ContasReceber({ categorias, clientes, projetos, contas, empresaId, userId, onRefresh, membro, navFiltro, onNavFiltroUsado, listaInicial }) {
+  const [lista, setLista] = useState(listaInicial||[]);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [carregando, setCarregando] = useState(true);
+  const [carregando, setCarregando] = useState(!listaInicial);
   const [nf, setNf] = useState(null);
   const [comp, setComp] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -3594,7 +3594,7 @@ export default function App() {
               {tela==="dashboard"    && <Dashboard {...props} subcategorias={dados.subcategorias} setTela={setTela} contasReceber={dados.contasReceber} contasPagar={dados.contasPagar} setNavFiltro={setNavFiltro} />}
               {tela==="lancamentos"  && <Lancamentos {...props} />}
               {tela==="contas_pagar"   && <ContasPagar {...props} navFiltro={navFiltro} onNavFiltroUsado={()=>setNavFiltro(null)} />}
-              {tela==="contas_receber" && <ContasReceber categorias={dados.categorias} clientes={dados.clientes} projetos={dados.projetos} contas={dados.contas} empresaId={empresa.id} userId={user.id} onRefresh={carregar} membro={membro} navFiltro={navFiltro} onNavFiltroUsado={()=>setNavFiltro(null)} />}
+              {tela==="contas_receber" && <ContasReceber categorias={dados.categorias} clientes={dados.clientes} projetos={dados.projetos} contas={dados.contas} empresaId={empresa.id} userId={user.id} onRefresh={carregar} membro={membro} navFiltro={navFiltro} onNavFiltroUsado={()=>setNavFiltro(null)} listaInicial={dados.contasReceber} />}
               {tela==="dre"          && <DRE lancamentos={dados.lancamentos} categorias={dados.categorias} />}
               {tela==="fluxo_caixa"  && <FluxoCaixa lancamentos={dados.lancamentos} categorias={dados.categorias} contas={dados.contas} />}
               {tela==="por_cliente"  && <PorCliente lancamentos={dados.lancamentos} clientes={dados.clientes} projetos={dados.projetos} />}
