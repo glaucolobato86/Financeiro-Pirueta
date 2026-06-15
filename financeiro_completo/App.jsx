@@ -296,11 +296,11 @@ function PreviewModal({ preview, onClose }) {
 }
 
 // ── Contas a Receber ────────────────────────────────────────────────────────
-function ContasReceber({ categorias, clientes, projetos, contas, empresaId, userId, onRefresh, membro, navFiltro, onNavFiltroUsado, listaInicial }) {
-  const [lista, setLista] = useState(listaInicial||[]);
+function ContasReceber({ categorias, clientes, projetos, contas, empresaId, userId, onRefresh, membro, navFiltro, onNavFiltroUsado }) {
+  const [lista, setLista] = useState([]);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [carregando, setCarregando] = useState(!listaInicial);
+  const [carregando, setCarregando] = useState(true);
   const [nf, setNf] = useState(null);
   const [comp, setComp] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -327,14 +327,6 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
   }, [empresaId]);
 
   useEffect(()=>{ carregar(); },[carregar]);
-
-  useEffect(()=>{
-    if(!navFiltro) return;
-    if(navFiltro.dataInicio !== undefined) setDataInicio(navFiltro.dataInicio);
-    if(navFiltro.dataFim !== undefined) setDataFim(navFiltro.dataFim);
-    if(navFiltro.status !== undefined) setFiltroStatus(navFiltro.status);
-    onNavFiltroUsado();
-  },[navFiltro]);
 
   const getStatus = (c) => {
     if(c.status==="recebido") return "recebido";
@@ -427,7 +419,7 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
   };
 
   const filtrada = lista.filter(c=>(filtroStatus==="todos"||(filtroStatus==="nao_recebido"?c.status!=="recebido":getStatus(c)===filtroStatus))&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
-  const totalAberto   = filtrada.filter(c=>c.status!=="recebido"&&c.status!=="cancelado").reduce((s,c)=>s+Number(c.valor),0);
+  const totalAberto   = filtrada.filter(c=>getStatus(c)!=="recebido").reduce((s,c)=>s+Number(c.valor),0);
   const totalRecebido = filtrada.filter(c=>c.status==="recebido").reduce((s,c)=>s+Number(c.valor),0);
   const totalGeral    = filtrada.reduce((s,c)=>s+Number(c.valor),0);
   const porDia = {};
@@ -648,14 +640,6 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
 
   useEffect(()=>{ carregar(); },[carregar]);
 
-  useEffect(()=>{
-    if(!navFiltro) return;
-    if(navFiltro.dataInicio !== undefined) setDataInicio(navFiltro.dataInicio);
-    if(navFiltro.dataFim !== undefined) setDataFim(navFiltro.dataFim);
-    if(navFiltro.status !== undefined) setFiltroStatus(navFiltro.status);
-    onNavFiltroUsado();
-  },[navFiltro]);
-
   const getStatus=(c)=>{ if(c.status==="pago")return "pago"; if(c.vencimento<hoje)return "vencido"; const diff=(new Date(c.vencimento)-new Date())/(1000*60*60*24); if(diff<=5)return "avencer"; return "aberto"; };
   const statusInfo={ pago:{label:"Pago",cor:"#34d399",bg:"rgba(52,211,153,0.15)",icon:"✓"}, vencido:{label:"Vencido",cor:"#f87171",bg:"rgba(248,113,113,0.15)",icon:"⚠"}, avencer:{label:"A vencer",cor:"#fbbf24",bg:"rgba(251,191,36,0.15)",icon:"⏰"}, aberto:{label:"Em aberto",cor:"#818cf8",bg:"rgba(129,140,248,0.15)",icon:"○"} };
 
@@ -703,7 +687,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
 
   const lista=contas.filter(c=>(filtroStatus==="todos"||(filtroStatus==="nao_pago"?c.status!=="pago":getStatus(c)===filtroStatus))&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
   const totais={fixo:0,variavel:0,investimento:0,outros:0};
-  contas.filter(c=>c.status!=="pago"&&c.status!=="cancelado").forEach(c=>{totais[c.tipo_custo]=(totais[c.tipo_custo]||0)+Number(c.valor);});
+  contas.filter(c=>getStatus(c)!=="pago").forEach(c=>{totais[c.tipo_custo]=(totais[c.tipo_custo]||0)+Number(c.valor);});
   const totalGeral=Object.values(totais).reduce((s,v)=>s+v,0);
   const porDia={};
   lista.forEach(c=>{if(!porDia[c.vencimento])porDia[c.vencimento]=[];porDia[c.vencimento].push(c);});
@@ -1947,6 +1931,9 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
         );
       })()}
 
+
+      {/* DEBUG TEMPORÁRIO */}
+      {(()=>{ const cr2=(contasReceber||[]).filter(c=>c.status!=="recebido"&&c.status!=="cancelado"&&c.vencimento&&(!inicio||c.vencimento>=inicio)&&(!fim||c.vencimento<=fim)); return cr2.length>0?(<div style={{background:"rgba(251,191,36,0.1)",border:"1px solid rgba(251,191,36,0.3)",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:11,color:"#fbbf24"}}><div style={{fontWeight:700,marginBottom:6}}>DEBUG — período: [{inicio||"vazio"}] até [{fim||"vazio"}]</div>{cr2.map(c=><div key={c.id}>• {c.descricao} | venc: [{c.vencimento||"SEM DATA"}] | status: {c.status}</div>)}</div>):null; })()}
       {/* Tabelas */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
         {/* Top clientes */}
@@ -3594,7 +3581,7 @@ export default function App() {
               {tela==="dashboard"    && <Dashboard {...props} subcategorias={dados.subcategorias} setTela={setTela} contasReceber={dados.contasReceber} contasPagar={dados.contasPagar} setNavFiltro={setNavFiltro} />}
               {tela==="lancamentos"  && <Lancamentos {...props} />}
               {tela==="contas_pagar"   && <ContasPagar {...props} navFiltro={navFiltro} onNavFiltroUsado={()=>setNavFiltro(null)} />}
-              {tela==="contas_receber" && <ContasReceber categorias={dados.categorias} clientes={dados.clientes} projetos={dados.projetos} contas={dados.contas} empresaId={empresa.id} userId={user.id} onRefresh={carregar} membro={membro} navFiltro={navFiltro} onNavFiltroUsado={()=>setNavFiltro(null)} listaInicial={dados.contasReceber} />}
+              {tela==="contas_receber" && <ContasReceber categorias={dados.categorias} clientes={dados.clientes} projetos={dados.projetos} contas={dados.contas} empresaId={empresa.id} userId={user.id} onRefresh={carregar} membro={membro} navFiltro={navFiltro} onNavFiltroUsado={()=>setNavFiltro(null)} />}
               {tela==="dre"          && <DRE lancamentos={dados.lancamentos} categorias={dados.categorias} />}
               {tela==="fluxo_caixa"  && <FluxoCaixa lancamentos={dados.lancamentos} categorias={dados.categorias} contas={dados.contas} />}
               {tela==="por_cliente"  && <PorCliente lancamentos={dados.lancamentos} clientes={dados.clientes} projetos={dados.projetos} />}
