@@ -760,6 +760,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
                     {c.recorrencia_id && getStatus(c)!=="pago" && (
                       <button onClick={()=>excluirGrupo(c.recorrencia_id)} title="Cancelar recorrência futura" style={{ background:"rgba(251,191,36,0.1)", border:"1px solid rgba(251,191,36,0.2)", borderRadius:5, color:"#fbbf24", cursor:"pointer", fontSize:10, padding:"2px 7px" }}>⛔ Cancelar série</button>
                     )}
+                    {podeCriar && <button onClick={()=>abrirEditar(c)} title="Editar" style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:5, color:"#818cf8", cursor:"pointer", fontSize:12, padding:"2px 8px" }}>✏</button>}
                     {podeExcluir && <button onClick={()=>excluir(c.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
                   </div>
                 </div>
@@ -770,6 +771,52 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
       })}
 
       <PreviewModal preview={preview} onClose={()=>setPreview(null)} />
+
+      {/* Modal de edição */}
+      {editando && (
+        <Modal titulo="Editar conta a pagar" onClose={()=>setEditando(null)}>
+          <Campo label="Descrição"><input style={inputStyle} value={editando.descricao} onChange={e=>setEditando({...editando,descricao:e.target.value})} /></Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Valor (R$)"><input style={inputStyle} type="number" step="0.01" value={editando.valor} onChange={e=>setEditando({...editando,valor:e.target.value})} /></Campo>
+            <Campo label="Vencimento"><input style={inputStyle} type="date" value={editando.vencimento} onChange={e=>setEditando({...editando,vencimento:e.target.value})} /></Campo>
+          </div>
+          <Campo label="Tipo de custo">
+            <div style={{ display:"flex", gap:6 }}>
+              {[["fixo","Custo Fixo"],["variavel","Custo Variável"],["investimento","Investimento"]].map(([v,l])=>(
+                <button key={v} onClick={()=>setEditando({...editando,tipo_custo:v})} style={{ flex:1, padding:"8px 6px", borderRadius:8, border:`1px solid ${editando.tipo_custo===v?"#6366f1":"rgba(255,255,255,0.1)"}`, background:editando.tipo_custo===v?"rgba(99,102,241,0.2)":"transparent", color:editando.tipo_custo===v?"#818cf8":"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>{l}</button>
+              ))}
+            </div>
+          </Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Categoria">
+              <select style={selectStyle} value={editando.categoria_id} onChange={e=>setEditando({...editando,categoria_id:e.target.value,subcategoria_id:""})}>
+                <option style={optionStyle} value="">Sem categoria</option>
+                {categorias.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Subcategoria">
+              <select style={selectStyle} value={editando.subcategoria_id} onChange={e=>setEditando({...editando,subcategoria_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem subcategoria</option>
+                {(subcategorias||[]).filter(s=>s.categoria_id===editando.categoria_id).map(s=><option style={optionStyle} key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+          <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"vertical", minHeight:50 }} value={editando.observacao} onChange={e=>setEditando({...editando,observacao:e.target.value})} /></Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="📄 Nota Fiscal">
+              <input type="file" accept="image/*,.pdf" onChange={e=>setNfEdit(e.target.files[0])} style={{ ...inputStyle, padding:"7px 10px", fontSize:12 }} />
+              {nfEdit && <div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {nfEdit.name.slice(0,20)}</div>}
+              {!nfEdit && editando.nf_url && <div style={{ fontSize:11, color:"#818cf8", marginTop:3 }}>📄 NF já anexada</div>}
+            </Campo>
+            <Campo label="🧾 Comprovante">
+              <input type="file" accept="image/*,.pdf" onChange={e=>setCompEdit(e.target.files[0])} style={{ ...inputStyle, padding:"7px 10px", fontSize:12 }} />
+              {compEdit && <div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {compEdit.name.slice(0,20)}</div>}
+              {!compEdit && editando.comprovante_url && <div style={{ fontSize:11, color:"#818cf8", marginTop:3 }}>🧾 Comprovante já anexado</div>}
+            </Campo>
+          </div>
+          <BtnRow onCancel={()=>setEditando(null)} onSave={salvarEdicao} loading={loading} />
+        </Modal>
+      )}
 
       {modal && (
         <Modal titulo="Nova conta a pagar" onClose={()=>setModal(false)}>
