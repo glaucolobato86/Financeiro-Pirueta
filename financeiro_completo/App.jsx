@@ -296,7 +296,7 @@ function PreviewModal({ preview, onClose }) {
 }
 
 // ── Contas a Receber ────────────────────────────────────────────────────────
-function ContasReceber({ categorias, clientes, projetos, contas, empresaId, userId, onRefresh, membro }) {
+function ContasReceber({ categorias, clientes, projetos, contas, empresaId, userId, onRefresh, membro, navFiltro, onNavFiltroUsado }) {
   const [lista, setLista] = useState([]);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -307,8 +307,8 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDiaMes = new Date().toISOString().slice(0,7)+"-01";
-  const [dataInicio, setDataInicio] = useState(()=>new Date().toISOString().slice(0,7)+"-01");
-  const [dataFim, setDataFim] = useState(()=>new Date().toISOString().split("T")[0]);
+  const [dataInicio, setDataInicio] = useState(()=> navFiltro?.dataInicio || new Date().toISOString().slice(0,7)+"-01");
+  const [dataFim, setDataFim] = useState(()=> navFiltro?.dataFim || new Date().toISOString().split("T")[0]);
   const meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   const fmtData = (data) => { const[y,m,d]=data.split("-"); return{dia:d,mes:meses[Number(m)-1],ano:y}; };
 
@@ -585,7 +585,7 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
 }
 
 // ── Contas a Pagar ─────────────────────────────────────────────────────────────
-function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, membro }) {
+function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, membro, navFiltro, onNavFiltroUsado }) {
   const [contas, setContas] = useState([]);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -596,8 +596,8 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDiaMes = new Date().toISOString().slice(0,7)+"-01";
-  const [dataInicio, setDataInicio] = useState(()=>new Date().toISOString().slice(0,7)+"-01");
-  const [dataFim, setDataFim] = useState(()=>new Date().toISOString().split("T")[0]);
+  const [dataInicio, setDataInicio] = useState(()=> navFiltro?.dataInicio || new Date().toISOString().slice(0,7)+"-01");
+  const [dataFim, setDataFim] = useState(()=> navFiltro?.dataFim || new Date().toISOString().split("T")[0]);
 
 
   const [form, setForm] = useState({ descricao:"", valor:"", vencimento:"", categoria_id:"", subcategoria_id:"", tipo_custo:"variavel", observacao:"",
@@ -1747,7 +1747,7 @@ const SUBGRUPOS = {
 const fmtPct = (v) => `${Number(v).toFixed(1)}%`;
 
 // ── Dashboard ERP ──────────────────────────────────────────────────────────────
-function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, projetos, setTela, contasReceber, contasPagar }) {
+function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, projetos, setTela, contasReceber, contasPagar, setNavFiltro }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
   const [inicio, setInicio] = useState(primeiroDia);
@@ -1904,7 +1904,7 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
           <div style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 20px", marginBottom:20 }}>
             <div style={{ fontSize:11, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:14 }}>Previsão do Período</div>
             <div style={{ display:"flex", alignItems:"center", gap:24, flexWrap:"wrap" }}>
-              <div onClick={()=>setTela("contas_receber")}
+              <div onClick={()=>{ setNavFiltro({dataInicio:inicio, dataFim:fim}); setTela("contas_receber"); }}
                 style={{ flex:1, minWidth:140, cursor:"pointer", borderRadius:8, padding:"8px 10px", transition:"background 0.15s" }}
                 onMouseEnter={e=>e.currentTarget.style.background="rgba(52,211,153,0.07)"}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
@@ -1913,7 +1913,7 @@ function Dashboard({ lancamentos, contas, categorias, subcategorias, clientes, p
                 <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{cr.length} conta{cr.length!==1?"s":""} em aberto</div>
               </div>
               <div style={{ width:"1px", height:40, background:"rgba(255,255,255,0.07)" }} />
-              <div onClick={()=>setTela("contas_pagar")}
+              <div onClick={()=>{ setNavFiltro({dataInicio:inicio, dataFim:fim}); setTela("contas_pagar"); }}
                 style={{ flex:1, minWidth:140, cursor:"pointer", borderRadius:8, padding:"8px 10px", transition:"background 0.15s" }}
                 onMouseEnter={e=>e.currentTarget.style.background="rgba(248,113,113,0.07)"}
                 onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
@@ -3437,6 +3437,7 @@ export default function App() {
   const [empresa, setEmpresa] = useState(null);
   const [membro, setMembro] = useState(null);
   const [tela, setTela] = useState("dashboard");
+  const [navFiltro, setNavFiltro] = useState(null); // { dataInicio, dataFim } passado do dashboard
   const [dados, setDados] = useState({ lancamentos:[], contas:[], categorias:[], subcategorias:[], clientes:[], fornecedores:[], projetos:[], contasPagar:[], contasReceber:[] });
   const [carregando, setCarregando] = useState(false);
   const [verificando, setVerificando] = useState(true);
@@ -3574,10 +3575,10 @@ export default function App() {
             <div style={{ color:"rgba(255,255,255,0.3)", fontSize:14, paddingTop:40 }}>Carregando...</div>
           ) : (
             <>
-              {tela==="dashboard"    && <Dashboard {...props} subcategorias={dados.subcategorias} setTela={setTela} contasReceber={dados.contasReceber} contasPagar={dados.contasPagar} />}
+              {tela==="dashboard"    && <Dashboard {...props} subcategorias={dados.subcategorias} setTela={setTela} contasReceber={dados.contasReceber} contasPagar={dados.contasPagar} setNavFiltro={setNavFiltro} />}
               {tela==="lancamentos"  && <Lancamentos {...props} />}
-              {tela==="contas_pagar"   && <ContasPagar {...props} />}
-              {tela==="contas_receber" && <ContasReceber categorias={dados.categorias} clientes={dados.clientes} projetos={dados.projetos} contas={dados.contas} empresaId={empresa.id} userId={user.id} onRefresh={carregar} membro={membro} />}
+              {tela==="contas_pagar"   && <ContasPagar {...props} navFiltro={navFiltro} onNavFiltroUsado={()=>setNavFiltro(null)} />}
+              {tela==="contas_receber" && <ContasReceber categorias={dados.categorias} clientes={dados.clientes} projetos={dados.projetos} contas={dados.contas} empresaId={empresa.id} userId={user.id} onRefresh={carregar} membro={membro} navFiltro={navFiltro} onNavFiltroUsado={()=>setNavFiltro(null)} />}
               {tela==="dre"          && <DRE lancamentos={dados.lancamentos} categorias={dados.categorias} />}
               {tela==="fluxo_caixa"  && <FluxoCaixa lancamentos={dados.lancamentos} categorias={dados.categorias} contas={dados.contas} />}
               {tela==="por_cliente"  && <PorCliente lancamentos={dados.lancamentos} clientes={dados.clientes} projetos={dados.projetos} />}
