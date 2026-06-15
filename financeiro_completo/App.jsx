@@ -328,6 +328,14 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
 
   useEffect(()=>{ carregar(); },[carregar]);
 
+  useEffect(()=>{
+    if(!navFiltro) return;
+    if(navFiltro.dataInicio !== undefined) setDataInicio(navFiltro.dataInicio);
+    if(navFiltro.dataFim !== undefined) setDataFim(navFiltro.dataFim);
+    if(navFiltro.status !== undefined) setFiltroStatus(navFiltro.status);
+    onNavFiltroUsado();
+  },[navFiltro]);
+
   const getStatus = (c) => {
     if(c.status==="recebido") return "recebido";
     if(c.vencimento < hoje) return "vencido";
@@ -639,6 +647,14 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   }, [empresaId]);
 
   useEffect(()=>{ carregar(); },[carregar]);
+
+  useEffect(()=>{
+    if(!navFiltro) return;
+    if(navFiltro.dataInicio !== undefined) setDataInicio(navFiltro.dataInicio);
+    if(navFiltro.dataFim !== undefined) setDataFim(navFiltro.dataFim);
+    if(navFiltro.status !== undefined) setFiltroStatus(navFiltro.status);
+    onNavFiltroUsado();
+  },[navFiltro]);
 
   const getStatus=(c)=>{ if(c.status==="pago")return "pago"; if(c.vencimento<hoje)return "vencido"; const diff=(new Date(c.vencimento)-new Date())/(1000*60*60*24); if(diff<=5)return "avencer"; return "aberto"; };
   const statusInfo={ pago:{label:"Pago",cor:"#34d399",bg:"rgba(52,211,153,0.15)",icon:"✓"}, vencido:{label:"Vencido",cor:"#f87171",bg:"rgba(248,113,113,0.15)",icon:"⚠"}, avencer:{label:"A vencer",cor:"#fbbf24",bg:"rgba(251,191,36,0.15)",icon:"⏰"}, aberto:{label:"Em aberto",cor:"#818cf8",bg:"rgba(129,140,248,0.15)",icon:"○"} };
