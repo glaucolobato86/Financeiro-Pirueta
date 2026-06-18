@@ -662,7 +662,37 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const getStatus=(c)=>{ if(c.status==="pago")return "pago"; if(c.vencimento<hoje)return "vencido"; const diff=(new Date(c.vencimento)-new Date())/(1000*60*60*24); if(diff<=5)return "avencer"; return "aberto"; };
   const statusInfo={ pago:{label:"Pago",cor:"#34d399",bg:"rgba(52,211,153,0.15)",icon:"✓"}, vencido:{label:"Vencido",cor:"#f87171",bg:"rgba(248,113,113,0.15)",icon:"⚠"}, avencer:{label:"A vencer",cor:"#fbbf24",bg:"rgba(251,191,36,0.15)",icon:"⏰"}, aberto:{label:"Em aberto",cor:"#818cf8",bg:"rgba(129,140,248,0.15)",icon:"○"} };
 
-  const marcarPago=async(id)=>{ if(!confirm("Marcar como paga?"))return; await sb(`contas_pagar?id=eq.${id}`,{method:"PATCH",body:JSON.stringify({status:"pago",pago_em:hoje})}); carregar(); };
+  const marcarPago = async (item) => {
+    if(!confirm("Marcar como paga e lançar no financeiro?")) return;
+    try {
+      // Cria lançamento de despesa
+      const res = await sb("lancamentos", { method:"POST", body:JSON.stringify({
+        descricao: item.descricao,
+        valor: item.valor,
+        tipo: "saida",
+        tipo_lancamento: "despesa_operacional",
+        data_competencia: hoje,
+        data_pagamento: hoje,
+        impacta_dre: item.impacta_dre !== false,
+        impacta_caixa: true,
+        valor_repasse: 0,
+        modo_lanc: "unico",
+        empresa_id: empresaId,
+        criado_por: userId,
+        categoria_id: item.categoria_id||null,
+        projeto_id: item.projeto_id||null,
+        conta_id: item.conta_bancaria_id||null,
+        observacao: item.observacao||null,
+        nf_url: item.nf_url||null,
+        nf_nome: item.nf_nome||null,
+      })});
+      if(res && res[0]?.code) { alert("Erro ao criar lançamento: " + (res[0].message||JSON.stringify(res[0]))); return; }
+      // Marca como pago
+      await sb(`contas_pagar?id=eq.${item.id}`, { method:"PATCH", body:JSON.stringify({ status:"pago", pago_em:hoje }) });
+      carregar();
+      onRefresh();
+    } catch(e) { alert("Erro: " + e.message); }
+  };
   const excluir=async(id)=>{ if(!confirm("Excluir?"))return; await sb(`contas_pagar?id=eq.${id}`,{method:"DELETE",prefer:""}); carregar(); };
   const excluirGrupo=async(recorrencia_id)=>{
     if(!confirm("Cancelar todos os lançamentos futuros desta recorrência?"))return;
@@ -783,7 +813,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
               return (
                 <div key={c.id} style={{ background:"#13131f", border:"1px solid rgba(255,255,255,0.05)", borderTop:"none", borderRadius:i===itens.length-1?"0 0 10px 10px":0, padding:"12px 16px", display:"flex", alignItems:"center", gap:12 }}>
                   <div style={{ background:si.bg, border:`1px solid ${si.cor}44`, borderRadius:6, padding:"3px 8px", fontSize:11, color:si.cor, fontWeight:500, whiteSpace:"nowrap", minWidth:80, textAlign:"center" }}>{si.icon} {si.label}</div>
-                  {st!=="pago" && podeCriar && (<button onClick={()=>marcarPago(c.id)} title="Marcar como pago" style={{ width:34, height:34, borderRadius:"50%", background:"#16a34a", border:"none", color:"#fff", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>💲</button>)}
+                  {st!=="pago" && podeCriar && (<button onClick={()=>marcarPago(c)} title="Marcar como pago" style={{ width:34, height:34, borderRadius:"50%", background:"#16a34a", border:"none", color:"#fff", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>💲</button>)}
                   {st==="pago" && <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(52,211,153,0.2)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:16 }}>✓</div>}
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, color:"#fff", fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
