@@ -165,11 +165,11 @@ function Campo({ label, children }) {
   );
 }
 
-function BtnRow({ onCancel, onSave, loading }) {
+function BtnRow({ onCancel, onSave, loading, labelSave }) {
   return (
     <div style={{ display:"flex", gap:10, marginTop:20 }}>
       <button onClick={onCancel} style={{ flex:1, padding:"11px", borderRadius:8, border:"1px solid rgba(255,255,255,0.1)", background:"transparent", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontSize:13 }}>Cancelar</button>
-      <button onClick={onSave} disabled={loading} style={{ flex:1, padding:"11px", borderRadius:8, border:"none", background:"#6366f1", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:500 }}>{loading?"Salvando...":"Salvar"}</button>
+      <button onClick={onSave} disabled={loading} style={{ flex:1, padding:"11px", borderRadius:8, border:"none", background:"#6366f1", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:500 }}>{loading?"Salvando...":(labelSave||"Salvar")}</button>
     </div>
   );
 }
@@ -619,6 +619,9 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const [editando, setEditando] = useState(null);
   const [nfEdit, setNfEdit] = useState(null);
   const [compEdit, setCompEdit] = useState(null);
+  const [modalBaixa, setModalBaixa] = useState(null); // item sendo pago
+  const [baixaForm, setBaixaForm] = useState({});
+  const [loadingBaixa, setLoadingBaixa] = useState(false);
   const podeExcluir = membro?.perfil !== "visualizador";
   const podeCriar = membro?.perfil !== "visualizador";
 
@@ -662,36 +665,52 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const getStatus=(c)=>{ if(c.status==="pago")return "pago"; if(c.vencimento<hoje)return "vencido"; const diff=(new Date(c.vencimento)-new Date())/(1000*60*60*24); if(diff<=5)return "avencer"; return "aberto"; };
   const statusInfo={ pago:{label:"Pago",cor:"#34d399",bg:"rgba(52,211,153,0.15)",icon:"✓"}, vencido:{label:"Vencido",cor:"#f87171",bg:"rgba(248,113,113,0.15)",icon:"⚠"}, avencer:{label:"A vencer",cor:"#fbbf24",bg:"rgba(251,191,36,0.15)",icon:"⏰"}, aberto:{label:"Em aberto",cor:"#818cf8",bg:"rgba(129,140,248,0.15)",icon:"○"} };
 
-  const marcarPago = async (item) => {
-    if(!confirm("Marcar como paga e lançar no financeiro?")) return;
+  const abrirBaixa = (item) => {
+    setBaixaForm({
+      tipo_lancamento: "despesa_operacional",
+      data_competencia: hoje,
+      data_pagamento: hoje,
+      conta_id: item.conta_bancaria_id||"",
+      categoria_id: item.categoria_id||"",
+      projeto_id: item.projeto_id||"",
+      impacta_dre: item.impacta_dre !== false,
+      observacao: item.observacao||"",
+    });
+    setModalBaixa(item);
+  };
+
+  const confirmarBaixa = async () => {
+    if(!modalBaixa) return;
+    setLoadingBaixa(true);
     try {
-      // Cria lançamento de despesa
+      const g = GRUPOS[baixaForm.tipo_lancamento] || {};
       const res = await sb("lancamentos", { method:"POST", body:JSON.stringify({
-        descricao: item.descricao,
-        valor: item.valor,
-        tipo: "saida",
-        tipo_lancamento: "despesa_operacional",
-        data_competencia: hoje,
-        data_pagamento: hoje,
-        impacta_dre: item.impacta_dre !== false,
+        descricao: modalBaixa.descricao,
+        valor: modalBaixa.valor,
+        tipo: g.tipo || "saida",
+        tipo_lancamento: baixaForm.tipo_lancamento,
+        data_competencia: baixaForm.data_competencia,
+        data_pagamento: baixaForm.data_pagamento||null,
+        impacta_dre: baixaForm.impacta_dre,
         impacta_caixa: true,
         valor_repasse: 0,
         modo_lanc: "unico",
         empresa_id: empresaId,
         criado_por: userId,
-        categoria_id: item.categoria_id||null,
-        projeto_id: item.projeto_id||null,
-        conta_id: item.conta_bancaria_id||null,
-        observacao: item.observacao||null,
-        nf_url: item.nf_url||null,
-        nf_nome: item.nf_nome||null,
+        categoria_id: baixaForm.categoria_id||null,
+        projeto_id: baixaForm.projeto_id||null,
+        conta_id: baixaForm.conta_id||null,
+        observacao: baixaForm.observacao||null,
+        nf_url: modalBaixa.nf_url||null,
+        nf_nome: modalBaixa.nf_nome||null,
       })});
-      if(res && res[0]?.code) { alert("Erro ao criar lançamento: " + (res[0].message||JSON.stringify(res[0]))); return; }
-      // Marca como pago
-      await sb(`contas_pagar?id=eq.${item.id}`, { method:"PATCH", body:JSON.stringify({ status:"pago", pago_em:hoje }) });
+      if(res && res[0]?.code) { alert("Erro ao criar lançamento: " + (res[0].message||JSON.stringify(res[0]))); setLoadingBaixa(false); return; }
+      await sb(`contas_pagar?id=eq.${modalBaixa.id}`, { method:"PATCH", body:JSON.stringify({ status:"pago", pago_em:hoje }) });
+      setModalBaixa(null);
       carregar();
       onRefresh();
     } catch(e) { alert("Erro: " + e.message); }
+    setLoadingBaixa(false);
   };
   const excluir=async(id)=>{ if(!confirm("Excluir?"))return; await sb(`contas_pagar?id=eq.${id}`,{method:"DELETE",prefer:""}); carregar(); };
   const excluirGrupo=async(recorrencia_id)=>{
@@ -813,7 +832,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
               return (
                 <div key={c.id} style={{ background:"#13131f", border:"1px solid rgba(255,255,255,0.05)", borderTop:"none", borderRadius:i===itens.length-1?"0 0 10px 10px":0, padding:"12px 16px", display:"flex", alignItems:"center", gap:12 }}>
                   <div style={{ background:si.bg, border:`1px solid ${si.cor}44`, borderRadius:6, padding:"3px 8px", fontSize:11, color:si.cor, fontWeight:500, whiteSpace:"nowrap", minWidth:80, textAlign:"center" }}>{si.icon} {si.label}</div>
-                  {st!=="pago" && podeCriar && (<button onClick={()=>marcarPago(c)} title="Marcar como pago" style={{ width:34, height:34, borderRadius:"50%", background:"#16a34a", border:"none", color:"#fff", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>💲</button>)}
+                  {st!=="pago" && podeCriar && (<button onClick={()=>abrirBaixa(c)} title="Registrar pagamento" style={{ width:34, height:34, borderRadius:"50%", background:"#16a34a", border:"none", color:"#fff", fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>💲</button>)}
                   {st==="pago" && <div style={{ width:34, height:34, borderRadius:"50%", background:"rgba(52,211,153,0.2)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:16 }}>✓</div>}
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontSize:13, color:"#fff", fontWeight:500, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
@@ -846,6 +865,71 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
       })}
 
       <PreviewModal preview={preview} onClose={()=>setPreview(null)} />
+
+      {/* Modal de baixa / registrar pagamento */}
+      {modalBaixa && (
+        <Modal titulo={`Registrar pagamento: ${modalBaixa.descricao}`} onClose={()=>setModalBaixa(null)}>
+          <div style={{ background:"rgba(52,211,153,0.08)", border:"1px solid rgba(52,211,153,0.2)", borderRadius:10, padding:"10px 16px", marginBottom:16, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ fontSize:13, color:"rgba(255,255,255,0.6)" }}>Valor a pagar</div>
+            <div style={{ fontSize:20, fontWeight:700, color:"#34d399" }}>{fmt(Number(modalBaixa.valor))}</div>
+          </div>
+
+          <Campo label="Tipo de lançamento">
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+              {Object.entries(GRUPOS).filter(([k])=>["despesa_operacional","despesa_financeira","imposto","taxa_bancaria","repasse_terceiros"].includes(k)).map(([k,g])=>(
+                <button key={k} onClick={()=>setBaixaForm(f=>({...f,tipo_lancamento:k,impacta_dre:g.impactaDRE}))}
+                  style={{ padding:"7px 6px", borderRadius:8, border:`1px solid ${baixaForm.tipo_lancamento===k?g.cor:"rgba(255,255,255,0.08)"}`, background:baixaForm.tipo_lancamento===k?g.cor+"22":"transparent", color:baixaForm.tipo_lancamento===k?g.cor:"rgba(255,255,255,0.4)", fontSize:10, cursor:"pointer", fontWeight:baixaForm.tipo_lancamento===k?600:400, textAlign:"center", lineHeight:1.3 }}>
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </Campo>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Data competência">
+              <input style={inputStyle} type="date" value={baixaForm.data_competencia} onChange={e=>setBaixaForm(f=>({...f,data_competencia:e.target.value}))} />
+            </Campo>
+            <Campo label="Data pagamento (opcional)">
+              <input style={inputStyle} type="date" value={baixaForm.data_pagamento} onChange={e=>setBaixaForm(f=>({...f,data_pagamento:e.target.value}))} />
+            </Campo>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Categoria">
+              <select style={selectStyle} value={baixaForm.categoria_id} onChange={e=>setBaixaForm(f=>({...f,categoria_id:e.target.value}))}>
+                <option style={optionStyle} value="">Sem categoria</option>
+                {(catsDesp).map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Conta bancária">
+              <select style={selectStyle} value={baixaForm.conta_id} onChange={e=>setBaixaForm(f=>({...f,conta_id:e.target.value}))}>
+                <option style={optionStyle} value="">Sem conta</option>
+                {(contasBancarias||[]).map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Projeto / Campanha">
+              <select style={selectStyle} value={baixaForm.projeto_id} onChange={e=>setBaixaForm(f=>({...f,projeto_id:e.target.value}))}>
+                <option style={optionStyle} value="">Sem projeto</option>
+                {(projetos||[]).map(p=><option style={optionStyle} key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Impacta DRE?">
+              <button onClick={()=>setBaixaForm(f=>({...f,impacta_dre:!f.impacta_dre}))} style={{ width:"100%", padding:"10px", borderRadius:8, border:`1px solid ${baixaForm.impacta_dre?"#6366f1":"#f97316"}`, background:baixaForm.impacta_dre?"rgba(99,102,241,0.12)":"rgba(249,115,22,0.12)", color:baixaForm.impacta_dre?"#818cf8":"#f97316", cursor:"pointer", fontSize:13, fontWeight:500 }}>
+                {baixaForm.impacta_dre?"✓ Sim, impacta DRE":"✕ Não impacta DRE"}
+              </button>
+            </Campo>
+          </div>
+
+          <Campo label="Observação">
+            <textarea style={{ ...inputStyle, resize:"none", height:55 }} value={baixaForm.observacao} onChange={e=>setBaixaForm(f=>({...f,observacao:e.target.value}))} />
+          </Campo>
+
+          <BtnRow onCancel={()=>setModalBaixa(null)} onSave={confirmarBaixa} loading={loadingBaixa} labelSave="✓ Confirmar pagamento" />
+        </Modal>
+      )}
 
       {/* Modal de edição */}
       {editando && (
