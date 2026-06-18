@@ -696,7 +696,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
     setLoadingBaixa(true);
     try {
       const g = GRUPOS[baixaForm.tipo_lancamento] || {};
-      const res = await sb("lancamentos", { method:"POST", body:JSON.stringify({
+      const payload = {
         descricao: modalBaixa.descricao,
         valor: modalBaixa.valor,
         tipo: g.tipo || "saida",
@@ -715,13 +715,16 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
         observacao: baixaForm.observacao||null,
         nf_url: modalBaixa.nf_url||null,
         nf_nome: modalBaixa.nf_nome||null,
-      })});
+      };
+      console.log("BAIXA payload:", payload);
+      const res = await sb("lancamentos", { method:"POST", body:JSON.stringify(payload)});
+      console.log("BAIXA res:", res);
       if(res && res[0]?.code) { alert("Erro ao criar lançamento: " + (res[0].message||JSON.stringify(res[0]))); setLoadingBaixa(false); return; }
       await sb(`contas_pagar?id=eq.${modalBaixa.id}`, { method:"PATCH", body:JSON.stringify({ status:"pago", pago_em:hoje }) });
       setModalBaixa(null);
       carregar();
       onRefresh();
-    } catch(e) { alert("Erro: " + e.message); }
+    } catch(e) { alert("Erro ao registrar pagamento: " + e.message); console.error("BAIXA error:", e); }
     setLoadingBaixa(false);
   };
   const excluir=async(id)=>{ if(!confirm("Excluir?"))return; await sb(`contas_pagar?id=eq.${id}`,{method:"DELETE",prefer:""}); carregar(); };
