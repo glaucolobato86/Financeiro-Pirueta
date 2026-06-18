@@ -592,6 +592,18 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
   );
 }
 
+// ── Grupos de lançamento (definido aqui para uso em ContasPagar e Lancamentos) ─
+const GRUPOS = {
+  receita_operacional:  { label:"Receita Operacional",    cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
+  repasse_entrada:      { label:"Recebimento Pass-through", cor:"#fb923c", impactaDRE:false, tipo:"entrada" },
+  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"saida"   },
+  despesa_operacional:  { label:"Despesa Operacional",    cor:"#10b981", impactaDRE:true,  tipo:"saida" },
+  despesa_financeira:   { label:"Despesa Financeira",     cor:"#fbbf24", impactaDRE:true,  tipo:"saida" },
+  imposto:              { label:"Imposto",                cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
+  taxa_bancaria:        { label:"Taxa Bancária",          cor:"#94a3b8", impactaDRE:false, tipo:"saida" },
+  transferencia_interna:{ label:"Transferência Interna",  cor:"#cbd5e1", impactaDRE:false, tipo:"saida" },
+};
+
 // ── Contas a Pagar ─────────────────────────────────────────────────────────────
 function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, membro, navFiltro, onNavFiltroUsado, projetos, contas: contasBancarias }) {
   const [contas, setContas] = useState([]);
@@ -1082,17 +1094,6 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
 }
 
 // ── Grupos de lançamento ───────────────────────────────────────────────────────
-const GRUPOS = {
-  receita_operacional:  { label:"Receita Operacional",    cor:"#6366f1", impactaDRE:true,  tipo:"entrada" },
-  repasse_entrada:      { label:"Recebimento Pass-through", cor:"#fb923c", impactaDRE:false, tipo:"entrada" },
-  repasse_terceiros:    { label:"Repasse / Pass-through", cor:"#f97316", impactaDRE:false, tipo:"saida"   },
-  despesa_operacional:  { label:"Despesa Operacional",    cor:"#10b981", impactaDRE:true,  tipo:"saida" },
-  despesa_financeira:   { label:"Despesa Financeira",     cor:"#fbbf24", impactaDRE:true,  tipo:"saida" },
-  imposto:              { label:"Imposto",                cor:"#ef4444", impactaDRE:true,  tipo:"saida" },
-  taxa_bancaria:        { label:"Taxa Bancária",          cor:"#94a3b8", impactaDRE:false, tipo:"saida" },
-  transferencia_interna:{ label:"Transferência Interna",  cor:"#cbd5e1", impactaDRE:false, tipo:"saida" },
-};
-
 // ── Contas Bancárias ───────────────────────────────────────────────────────────
 function Contas({ contas, empresaId, onRefresh, membro, lancamentos, categorias, clientes, fornecedores, projetos, userId, contasReceber, contasPagar }) {
   // Calcula saldo dinâmico: saldo_inicial (referência OFX) + lançamentos APÓS a data do saldo
