@@ -714,6 +714,8 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const meses=["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
   const fmtData=(data)=>{const[y,m,d]=data.split("-");return{dia:d,mes:meses[Number(m)-1],ano:y};};
   const subsDisponiveis=(subcategorias||[]).filter(s=>s.categoria_id===form.categoria_id);
+  const GRUPOS_DESPESA = ["despesa_operacional","despesa_financeira","imposto","taxa_bancaria","repasse_terceiros"];
+  const catsDesp = (categorias||[]).filter(c=>GRUPOS_DESPESA.includes(c.grupo));
 
   return (
     <div>
@@ -869,18 +871,18 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
             <Campo label="Vencimento"><input style={inputStyle} type="date" value={form.vencimento} onChange={e=>setForm({...form,vencimento:e.target.value})} /></Campo>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Categoria">
+              <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value,subcategoria_id:""})}>
+                <option style={optionStyle} value="">Sem categoria</option>
+                {catsDesp.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
             <Campo label="Tipo de custo">
               <select style={selectStyle} value={form.tipo_custo} onChange={e=>setForm({...form,tipo_custo:e.target.value})}>
                 <option style={optionStyle} value="fixo">Custo Fixo</option>
                 <option style={optionStyle} value="variavel">Custo Variável</option>
                 <option style={optionStyle} value="investimento">Investimento</option>
                 <option style={optionStyle} value="outros">Outros</option>
-              </select>
-            </Campo>
-            <Campo label="Categoria">
-              <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value,subcategoria_id:""})}>
-                <option style={optionStyle} value="">Sem categoria</option>
-                {categorias.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
             </Campo>
           </div>
@@ -892,7 +894,20 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
               </select>
             </Campo>
           )}
-          {/* Modo: único / parcelado / recorrente */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Conta Bancária">
+              <select style={selectStyle} value={form.conta_bancaria_id} onChange={e=>setForm({...form,conta_bancaria_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem conta</option>
+                {(contasBancarias||[]).map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Projeto / Campanha">
+              <select style={selectStyle} value={form.projeto_id} onChange={e=>setForm({...form,projeto_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem projeto</option>
+                {(projetos||[]).map(p=><option style={optionStyle} key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
           <Campo label="Tipo de lançamento">
             <div style={{ display:"flex", gap:6 }}>
               {[["unico","Único"],["parcelado","Parcelado"],["recorrente","Recorrente"]].map(([v,l])=>(
@@ -923,21 +938,6 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
               </div>
             </Campo>
           )}
-          <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"vertical", minHeight:50 }} value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} /></Campo>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-            <Campo label="Conta Bancária">
-              <select style={selectStyle} value={form.conta_bancaria_id} onChange={e=>setForm({...form,conta_bancaria_id:e.target.value})}>
-                <option style={optionStyle} value="">Sem conta</option>
-                {(contasBancarias||[]).map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            </Campo>
-            <Campo label="Projeto / Campanha">
-              <select style={selectStyle} value={form.projeto_id} onChange={e=>setForm({...form,projeto_id:e.target.value})}>
-                <option style={optionStyle} value="">Sem projeto</option>
-                {(projetos||[]).map(p=><option style={optionStyle} key={p.id} value={p.id}>{p.nome}</option>)}
-              </select>
-            </Campo>
-          </div>
           <Campo label="Impacta DRE?">
             <div style={{ display:"flex", gap:6 }}>
               {[[true,"✓ Sim, impacta DRE"],[false,"Não impacta"]].map(([v,l])=>(
@@ -948,8 +948,11 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
               ))}
             </div>
           </Campo>
-          <Campo label="📄 Nota Fiscal"><input type="file" accept="image/*,.pdf" onChange={e=>setNf(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{nf&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {nf.name}</div>}</Campo>
-          <Campo label="🧾 Comprovante"><input type="file" accept="image/*,.pdf" onChange={e=>setComp(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{comp&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {comp.name}</div>}</Campo>
+          <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"vertical", minHeight:50 }} value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} /></Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="📄 Nota Fiscal"><input type="file" accept="image/*,.pdf" onChange={e=>setNf(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{nf&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {nf.name}</div>}</Campo>
+            <Campo label="🧾 Comprovante"><input type="file" accept="image/*,.pdf" onChange={e=>setComp(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{comp&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {comp.name}</div>}</Campo>
+          </div>
           <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
         </Modal>
       )}
