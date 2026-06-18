@@ -593,7 +593,7 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
 }
 
 // ── Contas a Pagar ─────────────────────────────────────────────────────────────
-function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, membro, navFiltro, onNavFiltroUsado }) {
+function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, membro, navFiltro, onNavFiltroUsado, projetos, contas: contasBancarias }) {
   const [contas, setContas] = useState([]);
   const [modal, setModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -611,7 +611,10 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
   const [form, setForm] = useState({ descricao:"", valor:"", vencimento:"", categoria_id:"", subcategoria_id:"", tipo_custo:"variavel", observacao:"",
     modo:"unico",        // "unico" | "parcelado" | "recorrente"
     parcelas:2,          // para modo parcelado
-    recorrencia_meses:12 // para modo recorrente
+    recorrencia_meses:12, // para modo recorrente
+    projeto_id:"",
+    conta_bancaria_id:"",
+    impacta_dre:true,
   });
   const [editando, setEditando] = useState(null);
   const [nfEdit, setNfEdit] = useState(null);
@@ -675,7 +678,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
       let nf_url=null,nf_nome=null,comprovante_url=null,comprovante_nome=null;
       if(nf){const r=await uploadArquivo(nf,userId);nf_url=r.url;nf_nome=r.nome;}
       if(comp){const r=await uploadArquivo(comp,userId);comprovante_url=r.url;comprovante_nome=r.nome;}
-      const base={empresa_id:empresaId,criado_por:userId,categoria_id:form.categoria_id||null,subcategoria_id:form.subcategoria_id||null,nf_url,nf_nome,comprovante_url,comprovante_nome,tipo_custo:form.tipo_custo,descricao:form.descricao,observacao:form.observacao};
+      const base={empresa_id:empresaId,criado_por:userId,categoria_id:form.categoria_id||null,subcategoria_id:form.subcategoria_id||null,nf_url,nf_nome,comprovante_url,comprovante_nome,tipo_custo:form.tipo_custo,descricao:form.descricao,observacao:form.observacao,projeto_id:form.projeto_id||null,conta_bancaria_id:form.conta_bancaria_id||null,impacta_dre:form.impacta_dre};
       const addMeses=(dataStr,n)=>{ const d=new Date(dataStr+"T12:00:00"); d.setMonth(d.getMonth()+n); return d.toISOString().split("T")[0]; };
 
       if(form.modo==="unico"){
@@ -695,7 +698,7 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
         }
       }
       setModal(false);setNf(null);setComp(null);
-      setForm({descricao:"",valor:"",vencimento:"",categoria_id:"",subcategoria_id:"",tipo_custo:"variavel",observacao:"",modo:"unico",parcelas:2,recorrencia_meses:12});
+      setForm({descricao:"",valor:"",vencimento:"",categoria_id:"",subcategoria_id:"",tipo_custo:"variavel",observacao:"",modo:"unico",parcelas:2,recorrencia_meses:12,projeto_id:"",conta_bancaria_id:"",impacta_dre:true});
       carregar();
     }catch(e){alert("Erro: "+e.message);}
     setLoading(false);
@@ -921,6 +924,30 @@ function ContasPagar({ categorias, subcategorias, empresaId, userId, onRefresh, 
             </Campo>
           )}
           <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"vertical", minHeight:50 }} value={form.observacao} onChange={e=>setForm({...form,observacao:e.target.value})} /></Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Conta Bancária">
+              <select style={selectStyle} value={form.conta_bancaria_id} onChange={e=>setForm({...form,conta_bancaria_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem conta</option>
+                {(contasBancarias||[]).map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Projeto / Campanha">
+              <select style={selectStyle} value={form.projeto_id} onChange={e=>setForm({...form,projeto_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem projeto</option>
+                {(projetos||[]).map(p=><option style={optionStyle} key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+          <Campo label="Impacta DRE?">
+            <div style={{ display:"flex", gap:6 }}>
+              {[[true,"✓ Sim, impacta DRE"],[false,"Não impacta"]].map(([v,l])=>(
+                <button key={String(v)} onClick={()=>setForm({...form,impacta_dre:v})}
+                  style={{ flex:1, padding:"9px 6px", borderRadius:8, border:`1px solid ${form.impacta_dre===v?"#6366f1":"rgba(255,255,255,0.1)"}`, background:form.impacta_dre===v?"rgba(99,102,241,0.2)":"transparent", color:form.impacta_dre===v?"#818cf8":"rgba(255,255,255,0.45)", fontSize:12, cursor:"pointer", fontWeight:form.impacta_dre===v?600:400 }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </Campo>
           <Campo label="📄 Nota Fiscal"><input type="file" accept="image/*,.pdf" onChange={e=>setNf(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{nf&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {nf.name}</div>}</Campo>
           <Campo label="🧾 Comprovante"><input type="file" accept="image/*,.pdf" onChange={e=>setComp(e.target.files[0])} style={{ ...inputStyle, padding:"8px 12px" }} />{comp&&<div style={{ fontSize:11, color:"#34d399", marginTop:4 }}>✓ {comp.name}</div>}</Campo>
           <BtnRow onCancel={()=>setModal(false)} onSave={salvar} loading={loading} />
