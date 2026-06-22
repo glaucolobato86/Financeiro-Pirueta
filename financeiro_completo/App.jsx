@@ -3198,6 +3198,7 @@ function PorCliente({ lancamentos, clientes, projetos }) {
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
   const [inicio, setInicio] = useState(primeiroDia);
   const [fim, setFim] = useState(hoje);
+  const [aberto, setAberto] = useState(null); // id do cliente expandido
 
   const base = useMemo(()=>lancamentos.filter(l=>{
     if(inicio && l.data_competencia < inicio) return false;
@@ -3211,7 +3212,8 @@ function PorCliente({ lancamentos, clientes, projetos }) {
     const repasse = lCl.filter(l=>l.tipo_lancamento==="repasse_terceiros").reduce((s,l)=>s+Number(l.valor),0);
     const volume = recOp + repasse;
     const projsCl = projetos.filter(p=>p.cliente_id===cl.id);
-    return { ...cl, recOp, repasse, volume, projsCl };
+    const itens = [...lCl].sort((a,b)=>b.data_competencia.localeCompare(a.data_competencia));
+    return { ...cl, recOp, repasse, volume, projsCl, itens };
   }).filter(cl=>cl.volume>0).sort((a,b)=>b.recOp-a.recOp),[clientes,base,projetos]);
 
   const totalRecOp = dados.reduce((s,cl)=>s+cl.recOp,0);
@@ -3219,7 +3221,7 @@ function PorCliente({ lancamentos, clientes, projetos }) {
   return (
     <div>
       <div style={{ fontSize:22, fontWeight:700, color:"#fff", marginBottom:4 }}>Resultado por Cliente</div>
-      <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:18 }}>Receita operacional e volume financeiro por cliente</div>
+      <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", marginBottom:18 }}>Receita operacional e volume financeiro por cliente · clique em um cliente para ver os lançamentos</div>
 
       <div style={{ display:"flex", gap:10, marginBottom:20, background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:10, padding:"10px 16px", alignItems:"center" }}>
         <input type="date" value={inicio} onChange={e=>setInicio(e.target.value)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:7, padding:"5px 10px", color:"#fff", fontSize:12, outline:"none" }} />
@@ -3229,25 +3231,55 @@ function PorCliente({ lancamentos, clientes, projetos }) {
       </div>
 
       {dados.length===0 && <div style={{ textAlign:"center", padding:"40px 0", color:"rgba(255,255,255,0.2)" }}>Nenhum cliente com lançamentos no período</div>}
-      {dados.map(cl=>(
-        <div key={cl.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, padding:"16px 18px", marginBottom:10 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
-            <div>
-              <div style={{ fontSize:15, fontWeight:600, color:"#fff", marginBottom:4 }}>{cl.nome}</div>
-              <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>{cl.projsCl.length} projeto{cl.projsCl.length!==1?"s":""}</div>
+      {dados.map(cl=>{
+        const expandido = aberto===cl.id;
+        return (
+        <div key={cl.id} style={{ background:"#1a1a2e", border:"1px solid rgba(255,255,255,0.07)", borderRadius:12, marginBottom:10, overflow:"hidden" }}>
+          <div onClick={()=>setAberto(expandido?null:cl.id)} style={{ padding:"16px 18px", cursor:"pointer" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:12 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:11, color:"rgba(255,255,255,0.3)", transform:expandido?"rotate(90deg)":"none", transition:"transform 0.15s", display:"inline-block" }}>▶</span>
+                <div>
+                  <div style={{ fontSize:15, fontWeight:600, color:"#fff", marginBottom:4 }}>{cl.nome}</div>
+                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.4)" }}>{cl.projsCl.length} projeto{cl.projsCl.length!==1?"s":""} · {cl.itens.length} lançamento{cl.itens.length!==1?"s":""}</div>
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:20, textAlign:"right" }}>
+                <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>REC. OPERACIONAL</div><div style={{ fontSize:16, fontWeight:700, color:"#818cf8" }}>{fmt(cl.recOp)}</div></div>
+                {cl.repasse>0&&<div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>REPASSE</div><div style={{ fontSize:16, fontWeight:700, color:"#f97316" }}>{fmt(cl.repasse)}</div></div>}
+                <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>VOLUME TOTAL</div><div style={{ fontSize:16, fontWeight:700, color:"rgba(255,255,255,0.6)" }}>{fmt(cl.volume)}</div></div>
+              </div>
             </div>
-            <div style={{ display:"flex", gap:20, textAlign:"right" }}>
-              <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>REC. OPERACIONAL</div><div style={{ fontSize:16, fontWeight:700, color:"#818cf8" }}>{fmt(cl.recOp)}</div></div>
-              {cl.repasse>0&&<div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>REPASSE</div><div style={{ fontSize:16, fontWeight:700, color:"#f97316" }}>{fmt(cl.repasse)}</div></div>}
-              <div><div style={{ fontSize:10, color:"rgba(255,255,255,0.4)", marginBottom:3 }}>VOLUME TOTAL</div><div style={{ fontSize:16, fontWeight:700, color:"rgba(255,255,255,0.6)" }}>{fmt(cl.volume)}</div></div>
+            <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
+              <div style={{ width:`${totalRecOp?(cl.recOp/totalRecOp*100):0}%`, height:"100%", background:"#6366f1", borderRadius:999 }} />
             </div>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginTop:4 }}>{totalRecOp?((cl.recOp/totalRecOp)*100).toFixed(1):0}% da receita operacional total</div>
           </div>
-          <div style={{ height:4, background:"rgba(255,255,255,0.07)", borderRadius:999 }}>
-            <div style={{ width:`${totalRecOp?(cl.recOp/totalRecOp*100):0}%`, height:"100%", background:"#6366f1", borderRadius:999 }} />
-          </div>
-          <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginTop:4 }}>{totalRecOp?((cl.recOp/totalRecOp)*100).toFixed(1):0}% da receita operacional total</div>
+          {expandido && (
+            <div style={{ borderTop:"1px solid rgba(255,255,255,0.07)", background:"rgba(0,0,0,0.15)" }}>
+              {cl.itens.length===0 && <div style={{ padding:"14px 18px", fontSize:12, color:"rgba(255,255,255,0.3)" }}>Nenhum lançamento no período</div>}
+              {cl.itens.map(l=>{
+                const g = GRUPOS[l.tipo_lancamento] || {};
+                const proj = projetos.find(p=>p.id===l.projeto_id);
+                return (
+                  <div key={l.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 18px", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:10, minWidth:0 }}>
+                      <span style={{ fontSize:10, padding:"3px 8px", borderRadius:6, background:(g.cor||"#888")+"22", color:g.cor||"#888", fontWeight:600, flexShrink:0 }}>{g.label||l.tipo_lancamento}</span>
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontSize:13, color:"#fff", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.descricao}</div>
+                        <div style={{ fontSize:10, color:"rgba(255,255,255,0.35)" }}>{new Date(l.data_competencia+"T00:00").toLocaleDateString("pt-BR")}{proj?" · "+proj.nome:""}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize:14, fontWeight:600, color:l.tipo==="entrada"?"#34d399":"#f87171", flexShrink:0, marginLeft:12 }}>
+                      {l.tipo==="entrada"?"+":"-"}{fmt(Number(l.valor))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
-      ))}
+      );})}
     </div>
   );
 }
