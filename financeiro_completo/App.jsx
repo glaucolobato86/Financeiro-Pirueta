@@ -318,6 +318,9 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
   });
   const podeCriar  = membro?.perfil !== "visualizador";
   const podeExcluir = membro?.perfil !== "visualizador";
+  const [editando, setEditando] = useState(null);
+  const [nfEdit, setNfEdit] = useState(null);
+  const [compEdit, setCompEdit] = useState(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -426,6 +429,25 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
     setLoading(false);
   };
 
+  const abrirEditar = (c) => {
+    setEditando({ id:c.id, descricao:c.descricao||"", valor:String(c.valor||""), vencimento:c.vencimento||"", categoria_id:c.categoria_id||"", cliente_id:c.cliente_id||"", projeto_id:c.projeto_id||"", conta_id:c.conta_id||"", observacao:c.observacao||"", nf_url:c.nf_url||null, nf_nome:c.nf_nome||null, comprovante_url:c.comprovante_url||null, comprovante_nome:c.comprovante_nome||null });
+  };
+
+  const salvarEdicao = async () => {
+    if(!editando.descricao||!editando.valor) return alert("Preencha descrição e valor.");
+    setLoading(true);
+    try {
+      let nf_url=editando.nf_url, nf_nome=editando.nf_nome;
+      let comprovante_url=editando.comprovante_url, comprovante_nome=editando.comprovante_nome;
+      if(nfEdit){const r=await uploadArquivo(nfEdit,userId);nf_url=r.url;nf_nome=r.nome;}
+      if(compEdit){const r=await uploadArquivo(compEdit,userId);comprovante_url=r.url;comprovante_nome=r.nome;}
+      await sb(`contas_receber?id=eq.${editando.id}`, { method:"PATCH", body:JSON.stringify({ descricao:editando.descricao, valor:Number(editando.valor), vencimento:editando.vencimento, categoria_id:editando.categoria_id||null, cliente_id:editando.cliente_id||null, projeto_id:editando.projeto_id||null, conta_id:editando.conta_id||null, observacao:editando.observacao||null, nf_url, nf_nome, comprovante_url, comprovante_nome }) });
+      setEditando(null); setNfEdit(null); setCompEdit(null);
+      carregar();
+    } catch(e){ alert("Erro: "+e.message); }
+    setLoading(false);
+  };
+
   const filtrada = lista.filter(c=>(filtroStatus==="todos"||(filtroStatus==="nao_recebido"?c.status!=="recebido":getStatus(c)===filtroStatus))&&(!dataInicio||c.vencimento>=dataInicio)&&(!dataFim||c.vencimento<=dataFim));
   const totalAberto   = filtrada.filter(c=>c.status!=="recebido"&&c.status!=="cancelado").reduce((s,c)=>s+Number(c.valor),0);
   const totalRecebido = filtrada.filter(c=>c.status==="recebido").reduce((s,c)=>s+Number(c.valor),0);
@@ -512,6 +534,7 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
                     <div style={{ fontSize:15, fontWeight:600, color:st==="recebido"?"#34d399":"#818cf8", minWidth:100, textAlign:"right" }}>+{fmt(c.valor)}</div>
                     <div style={{ display:"flex", gap:4 }}>
                       {c.recorrencia_id && st!=="recebido" && <button onClick={()=>excluirGrupo(c.recorrencia_id)} title="Cancelar série" style={{ background:"rgba(251,191,36,0.1)", border:"1px solid rgba(251,191,36,0.2)", borderRadius:5, color:"#fbbf24", cursor:"pointer", fontSize:10, padding:"2px 7px" }}>⛔</button>}
+                      {podeCriar && st!=="recebido" && <button onClick={()=>abrirEditar(c)} title="Editar" style={{ background:"rgba(99,102,241,0.12)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:5, color:"#818cf8", cursor:"pointer", fontSize:10, padding:"2px 8px" }}>✏</button>}
                       {podeExcluir && <button onClick={()=>excluir(c.id)} style={{ background:"none", border:"none", color:"rgba(255,255,255,0.2)", cursor:"pointer", fontSize:14 }}>🗑</button>}
                     </div>
                   </div>
@@ -523,6 +546,50 @@ function ContasReceber({ categorias, clientes, projetos, contas, empresaId, user
       })}
 
       <PreviewModal preview={preview} onClose={()=>setPreview(null)} />
+
+      {editando && (
+        <Modal titulo="Editar conta a receber" onClose={()=>setEditando(null)}>
+          <Campo label="Descrição"><input style={inputStyle} value={editando.descricao} onChange={e=>setEditando({...editando,descricao:e.target.value})} /></Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Valor (R$)"><input style={inputStyle} type="number" step="0.01" value={editando.valor} onChange={e=>setEditando({...editando,valor:e.target.value})} /></Campo>
+            <Campo label="Vencimento"><input style={inputStyle} type="date" value={editando.vencimento} onChange={e=>setEditando({...editando,vencimento:e.target.value})} /></Campo>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Cliente">
+              <select style={selectStyle} value={editando.cliente_id} onChange={e=>setEditando({...editando,cliente_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem cliente</option>
+                {(clientes||[]).map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Categoria">
+              <select style={selectStyle} value={editando.categoria_id} onChange={e=>setEditando({...editando,categoria_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem categoria</option>
+                {(categorias||[]).map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="Projeto / Campanha">
+              <select style={selectStyle} value={editando.projeto_id} onChange={e=>setEditando({...editando,projeto_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem projeto</option>
+                {(projetos||[]).map(p=><option style={optionStyle} key={p.id} value={p.id}>{p.nome}</option>)}
+              </select>
+            </Campo>
+            <Campo label="Conta bancária">
+              <select style={selectStyle} value={editando.conta_id} onChange={e=>setEditando({...editando,conta_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem conta</option>
+                {(contas||[]).map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </Campo>
+          </div>
+          <Campo label="Observação"><textarea style={{ ...inputStyle, resize:"none", height:55 }} value={editando.observacao} onChange={e=>setEditando({...editando,observacao:e.target.value})} /></Campo>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <Campo label="📄 Nota Fiscal"><input type="file" accept="image/*,.pdf" onChange={e=>setNfEdit(e.target.files[0])} style={{ ...inputStyle, padding:"7px 10px", fontSize:12 }} />{editando.nf_nome&&!nfEdit&&<div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {editando.nf_nome.slice(0,20)}</div>}{nfEdit&&<div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {nfEdit.name.slice(0,20)}</div>}</Campo>
+            <Campo label="🧾 Comprovante"><input type="file" accept="image/*,.pdf" onChange={e=>setCompEdit(e.target.files[0])} style={{ ...inputStyle, padding:"7px 10px", fontSize:12 }} />{editando.comprovante_nome&&!compEdit&&<div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {editando.comprovante_nome.slice(0,20)}</div>}{compEdit&&<div style={{ fontSize:11, color:"#34d399", marginTop:3 }}>✓ {compEdit.name.slice(0,20)}</div>}</Campo>
+          </div>
+          <BtnRow onCancel={()=>setEditando(null)} onSave={salvarEdicao} loading={loading} />
+        </Modal>
+      )}
 
       {modal && (
         <Modal titulo="Novo recebimento" onClose={()=>setModal(false)}>
