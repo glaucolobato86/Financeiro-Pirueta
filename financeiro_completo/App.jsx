@@ -2462,7 +2462,7 @@ function imprimirExtrato(modo, porDia, categorias, clientes, projetos) {
   w.document.close();
 }
 
-function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, projetos, empresaId, userId, onRefresh, membro }) {
+function Lancamentos({ lancamentos, contas, categorias, subcategorias, clientes, fornecedores, projetos, empresaId, userId, onRefresh, membro }) {
   const [filtro, setFiltro] = useState("todos");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
@@ -2485,7 +2485,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
     tipo_lancamento:"receita_operacional",
     data_competencia:hoje, data_pagamento:"",
     impacta_dre:true, impacta_caixa:true,
-    categoria_id:"", conta_id:"", cliente_id:"",
+    categoria_id:"", subcategoria_id:"", conta_id:"", cliente_id:"",
     fornecedor_id:"", projeto_id:"",
     valor_repasse:"0", observacao:"",
     modo_lanc:"unico",       // "unico" | "recorrente"
@@ -2495,10 +2495,11 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
   // Quando tipo_lancamento muda, atualiza tipo e impacta_dre automaticamente
   const setTipoLanc = (tl) => {
     const g = GRUPOS[tl];
-    setForm(f=>({...f, tipo_lancamento:tl, tipo:g.tipo, impacta_dre:g.impactaDRE, categoria_id:""}));
+    setForm(f=>({...f, tipo_lancamento:tl, tipo:g.tipo, impacta_dre:g.impactaDRE, categoria_id:"", subcategoria_id:""}));
   };
 
   const catsFiltradas = useMemo(()=>categorias.filter(c=>c.grupo===form.tipo_lancamento),[categorias,form.tipo_lancamento]);
+  const subsDisp = useMemo(()=>(subcategorias||[]).filter(s=>s.categoria_id===form.categoria_id),[subcategorias,form.categoria_id]);
 
   const lista = useMemo(()=>lancamentos.filter(l=>{
     if(filtro!=="todos" && l.tipo_lancamento!==filtro) return false;
@@ -2531,7 +2532,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
       const base={
         ...form, valor:Number(form.valor), valor_repasse:Number(form.valor_repasse)||0,
         empresa_id:empresaId, criado_por:userId,
-        categoria_id:form.categoria_id||null, conta_id:form.conta_id||null,
+        categoria_id:form.categoria_id||null, subcategoria_id:form.subcategoria_id||null, conta_id:form.conta_id||null,
         cliente_id:form.cliente_id||null, fornecedor_id:form.fornecedor_id||null,
         projeto_id:form.projeto_id||null, data_pagamento:form.data_pagamento||null,
         nf_url,nf_nome,comprovante_url,comprovante_nome
@@ -2546,7 +2547,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
         await sb("lancamentos",{method:"POST",body:JSON.stringify(base)});
       }
       setModal(false); setNf(null); setComp(null);
-      setForm({descricao:"",valor:"",tipo:"entrada",tipo_lancamento:"receita_operacional",data_competencia:hoje,data_pagamento:"",impacta_dre:true,impacta_caixa:true,categoria_id:"",conta_id:"",cliente_id:"",fornecedor_id:"",projeto_id:"",valor_repasse:"0",observacao:"",modo_lanc:"unico",recorrencia_meses:12});
+      setForm({descricao:"",valor:"",tipo:"entrada",tipo_lancamento:"receita_operacional",data_competencia:hoje,data_pagamento:"",impacta_dre:true,impacta_caixa:true,categoria_id:"",subcategoria_id:"",conta_id:"",cliente_id:"",fornecedor_id:"",projeto_id:"",valor_repasse:"0",observacao:"",modo_lanc:"unico",recorrencia_meses:12});
       onRefresh();
     } catch(e){alert("Erro: "+e.message);}
     setLoading(false);
@@ -2572,6 +2573,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
       impacta_dre: l.impacta_dre!==false,
       impacta_caixa: l.impacta_caixa!==false,
       categoria_id: l.categoria_id||"",
+      subcategoria_id: l.subcategoria_id||"",
       conta_id: l.conta_id||"",
       cliente_id: l.cliente_id||"",
       fornecedor_id: l.fornecedor_id||"",
@@ -2605,6 +2607,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
         impacta_dre: editando.impacta_dre,
         impacta_caixa: editando.impacta_caixa,
         categoria_id: editando.categoria_id||null,
+        subcategoria_id: editando.subcategoria_id||null,
         conta_id: editando.conta_id||null,
         cliente_id: editando.cliente_id||null,
         fornecedor_id: editando.fornecedor_id||null,
@@ -2813,7 +2816,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <Campo label="Categoria">
-              <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value})}>
+              <select style={selectStyle} value={form.categoria_id} onChange={e=>setForm({...form,categoria_id:e.target.value,subcategoria_id:""})}>
                 <option style={optionStyle} value="">Selecione...</option>
                 {catsFiltradas.map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
@@ -2825,6 +2828,15 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
               </select>
             </Campo>
           </div>
+
+          {form.categoria_id && subsDisp.length>0 && (
+            <Campo label="Subcategoria">
+              <select style={selectStyle} value={form.subcategoria_id} onChange={e=>setForm({...form,subcategoria_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem subcategoria</option>
+                {subsDisp.map(s=><option style={optionStyle} key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </Campo>
+          )}
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <Campo label="Cliente">
@@ -2901,7 +2913,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
           <Campo label="Tipo de lançamento">
             <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
               {Object.entries(GRUPOS).map(([k,g])=>(
-                <button key={k} onClick={()=>setEditando({...editando,tipo_lancamento:k,tipo:g.tipo,impacta_dre:g.impactaDRE,categoria_id:""})}
+                <button key={k} onClick={()=>setEditando({...editando,tipo_lancamento:k,tipo:g.tipo,impacta_dre:g.impactaDRE,categoria_id:"",subcategoria_id:""})}
                   style={{ padding:"6px 10px", borderRadius:7, border:`1px solid ${editando.tipo_lancamento===k?g.cor:"rgba(255,255,255,0.08)"}`, background:editando.tipo_lancamento===k?g.cor+"22":"transparent", color:editando.tipo_lancamento===k?g.cor:"rgba(255,255,255,0.4)", fontSize:11, cursor:"pointer" }}>
                   {g.label}
                 </button>
@@ -2910,7 +2922,7 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
           </Campo>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <Campo label="Categoria">
-              <select style={selectStyle} value={editando.categoria_id} onChange={e=>setEditando({...editando,categoria_id:e.target.value})}>
+              <select style={selectStyle} value={editando.categoria_id} onChange={e=>setEditando({...editando,categoria_id:e.target.value,subcategoria_id:""})}>
                 <option style={optionStyle} value="">Sem categoria</option>
                 {categorias.filter(c=>c.grupo===editando.tipo_lancamento).map(c=><option style={optionStyle} key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
@@ -2922,6 +2934,15 @@ function Lancamentos({ lancamentos, contas, categorias, clientes, fornecedores, 
               </select>
             </Campo>
           </div>
+
+          {editando.categoria_id && (subcategorias||[]).filter(s=>s.categoria_id===editando.categoria_id).length>0 && (
+            <Campo label="Subcategoria">
+              <select style={selectStyle} value={editando.subcategoria_id} onChange={e=>setEditando({...editando,subcategoria_id:e.target.value})}>
+                <option style={optionStyle} value="">Sem subcategoria</option>
+                {(subcategorias||[]).filter(s=>s.categoria_id===editando.categoria_id).map(s=><option style={optionStyle} key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </Campo>
+          )}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <Campo label="Cliente">
               <select style={selectStyle} value={editando.cliente_id} onChange={e=>setEditando({...editando,cliente_id:e.target.value})}>
