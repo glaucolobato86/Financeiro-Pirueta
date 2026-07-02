@@ -2984,6 +2984,111 @@ function Lancamentos({ lancamentos, contas, categorias, subcategorias, clientes,
     </div>
   );
 }
+// ── Insights IA para DRE ───────────────────────────────────────────────────────
+function InsightsDRE({ recBruta, impostos, recLiq, despOp, ebit, despFin, lucroLiq, margemEbit, margemLiq, pctFin, subgruposOp, catsRec, inicio, fim }) {
+  const [insights, setInsights] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState(null);
+  const periodoRef = useRef(null);
+
+  const periodo = `${inicio} a ${fim}`;
+
+  const gerarInsights = async () => {
+    setLoading(true);
+    setErro(null);
+    setInsights(null);
+    periodoRef.current = periodo;
+    try {
+      const subgruposTexto = Object.entries(subgruposOp)
+        .map(([sg,d])=>`${sg}: R$${d.total.toFixed(2)} (${Object.entries(d.cats).map(([n,v])=>`${n}: R$${v.toFixed(2)}`).join(", ")})`)
+        .join("\n");
+      const receitasTexto = catsRec.map(([n,v])=>`${n}: R$${v.toFixed(2)}`).join(", ");
+      const prompt = `Você é um consultor financeiro especializado em agências de publicidade e comunicação brasileiras. Analise os dados financeiros abaixo e gere de 4 a 5 insights práticos, diretos e acionáveis para o gestor da agência.
+
+PERÍODO: ${periodo}
+
+DEMONSTRATIVO DE RESULTADOS:
+- Receita Bruta: R$${recBruta.toFixed(2)}
+- Impostos e Deduções: R$${impostos.toFixed(2)}
+- Receita Líquida: R$${recLiq.toFixed(2)}
+- Despesas Operacionais: R$${despOp.toFixed(2)}
+- EBIT (Resultado Operacional): R$${ebit.toFixed(2)} (Margem: ${margemEbit.toFixed(1)}%)
+- Despesas Financeiras: R$${despFin.toFixed(2)} (${pctFin.toFixed(1)}% da receita líquida)
+- Lucro Líquido: R$${lucroLiq.toFixed(2)} (Margem: ${margemLiq.toFixed(1)}%)
+
+RECEITAS POR SERVIÇO: ${receitasTexto}
+
+DESPESAS OPERACIONAIS POR SUBGRUPO:
+${subgruposTexto}
+
+Gere os insights em JSON com este formato exato (sem markdown, sem backticks, só o JSON):
+{"insights":[{"emoji":"🔴","titulo":"Título curto","texto":"Análise e recomendação prática em 1-2 frases.","tipo":"alerta|atencao|positivo|neutro"}]}
+
+Use emoji relevante, tipo "alerta" para problemas críticos, "atencao" para pontos de atenção, "positivo" para resultados bons, "neutro" para observações. Máximo 5 insights. Responda APENAS com o JSON.`;
+
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          model:"claude-sonnet-4-6",
+          max_tokens:1000,
+          messages:[{ role:"user", content:prompt }]
+        })
+      });
+      const data = await res.json();
+      const texto = data.content?.[0]?.text || "";
+      const parsed = JSON.parse(texto.replace(/```json|```/g,"").trim());
+      setInsights(parsed.insights);
+    } catch(e) {
+      setErro("Não foi possível gerar insights. Tente novamente.");
+    }
+    setLoading(false);
+  };
+
+  const corTipo = { alerta:"#f87171", atencao:"#fbbf24", positivo:"#34d399", neutro:"#818cf8" };
+  const bgTipo  = { alerta:"rgba(248,113,113,0.08)", atencao:"rgba(251,191,36,0.08)", positivo:"rgba(52,211,153,0.08)", neutro:"rgba(129,140,248,0.08)" };
+  const borderTipo = { alerta:"rgba(248,113,113,0.2)", atencao:"rgba(251,191,36,0.2)", positivo:"rgba(52,211,153,0.2)", neutro:"rgba(129,140,248,0.2)" };
+
+  return (
+    <div style={{ marginTop:20, background:"#1a1a2e", border:"1px solid rgba(99,102,241,0.2)", borderRadius:12, padding:20 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color:"#818cf8", textTransform:"uppercase", letterSpacing:"0.08em" }}>✨ Insights da IA</div>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginTop:2 }}>Análise gerada pelo Claude com base nos dados do período</div>
+        </div>
+        <button onClick={gerarInsights} disabled={loading} style={{ background:loading?"rgba(99,102,241,0.1)":"rgba(99,102,241,0.2)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:8, padding:"8px 16px", color:"#818cf8", fontSize:12, fontWeight:600, cursor:loading?"wait":"pointer" }}>
+          {loading ? "⏳ Analisando..." : insights ? "🔄 Atualizar" : "✨ Gerar insights"}
+        </button>
+      </div>
+
+      {!insights && !loading && !erro && (
+        <div style={{ textAlign:"center", padding:"20px 0", color:"rgba(255,255,255,0.2)", fontSize:13 }}>
+          Clique em "Gerar insights" para obter uma análise inteligente do período
+        </div>
+      )}
+
+      {erro && <div style={{ color:"#f87171", fontSize:13, textAlign:"center", padding:"12px 0" }}>{erro}</div>}
+
+      {insights && (
+        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {insights.map((ins,i)=>(
+            <div key={i} style={{ background:bgTipo[ins.tipo]||bgTipo.neutro, border:`1px solid ${borderTipo[ins.tipo]||borderTipo.neutro}`, borderRadius:10, padding:"12px 16px" }}>
+              <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
+                <span style={{ fontSize:20, flexShrink:0 }}>{ins.emoji}</span>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:700, color:corTipo[ins.tipo]||corTipo.neutro, marginBottom:4 }}>{ins.titulo}</div>
+                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.65)", lineHeight:1.6 }}>{ins.texto}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+          <div style={{ fontSize:10, color:"rgba(255,255,255,0.2)", textAlign:"right", marginTop:4 }}>Análise baseada nos dados de {periodoRef.current}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DRE({ lancamentos, categorias }) {
   const hoje = new Date().toISOString().split("T")[0];
   const primeiroDia = new Date().toISOString().slice(0,7)+"-01";
@@ -3200,6 +3305,14 @@ function DRE({ lancamentos, categorias }) {
             ))}
           </div>
         </div>
+
+        {/* Insights da IA */}
+        <InsightsDRE
+          recBruta={recBruta} impostos={impostos} recLiq={recLiq}
+          despOp={despOp} ebit={ebit} despFin={despFin} lucroLiq={lucroLiq}
+          margemEbit={margemEbit} margemLiq={margemLiq} pctFin={pctFin}
+          subgruposOp={subgruposOp} catsRec={catsRec} inicio={inicio} fim={fim}
+        />
       </div>
     </div>
   );
