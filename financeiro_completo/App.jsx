@@ -2986,103 +2986,100 @@ function Lancamentos({ lancamentos, contas, categorias, subcategorias, clientes,
 }
 // ── Insights IA para DRE ───────────────────────────────────────────────────────
 function InsightsDRE({ recBruta, impostos, recLiq, despOp, ebit, despFin, lucroLiq, margemEbit, margemLiq, pctFin, subgruposOp, catsRec, inicio, fim }) {
-  const [insights, setInsights] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [erro, setErro] = useState(null);
-  const periodoRef = useRef(null);
 
-  const periodo = `${inicio} a ${fim}`;
+  const gerarInsightsLocais = () => {
+    const lista = [];
+    const fmt2 = (v) => v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 
-  const gerarInsights = async () => {
-    setLoading(true);
-    setErro(null);
-    setInsights(null);
-    periodoRef.current = periodo;
-    try {
-      const subgruposTexto = Object.entries(subgruposOp)
-        .map(([sg,d])=>`${sg}: R$${d.total.toFixed(2)} (${Object.entries(d.cats).map(([n,v])=>`${n}: R$${v.toFixed(2)}`).join(", ")})`)
-        .join("\n");
-      const receitasTexto = catsRec.map(([n,v])=>`${n}: R$${v.toFixed(2)}`).join(", ");
-      const prompt = `Você é um consultor financeiro especializado em agências de publicidade e comunicação brasileiras. Analise os dados financeiros abaixo e gere de 4 a 5 insights práticos, diretos e acionáveis para o gestor da agência.
-
-PERÍODO: ${periodo}
-
-DEMONSTRATIVO DE RESULTADOS:
-- Receita Bruta: R$${recBruta.toFixed(2)}
-- Impostos e Deduções: R$${impostos.toFixed(2)}
-- Receita Líquida: R$${recLiq.toFixed(2)}
-- Despesas Operacionais: R$${despOp.toFixed(2)}
-- EBIT (Resultado Operacional): R$${ebit.toFixed(2)} (Margem: ${margemEbit.toFixed(1)}%)
-- Despesas Financeiras: R$${despFin.toFixed(2)} (${pctFin.toFixed(1)}% da receita líquida)
-- Lucro Líquido: R$${lucroLiq.toFixed(2)} (Margem: ${margemLiq.toFixed(1)}%)
-
-RECEITAS POR SERVIÇO: ${receitasTexto}
-
-DESPESAS OPERACIONAIS POR SUBGRUPO:
-${subgruposTexto}
-
-Gere os insights em JSON com este formato exato (sem markdown, sem backticks, só o JSON):
-{"insights":[{"emoji":"🔴","titulo":"Título curto","texto":"Análise e recomendação prática em 1-2 frases.","tipo":"alerta|atencao|positivo|neutro"}]}
-
-Use emoji relevante, tipo "alerta" para problemas críticos, "atencao" para pontos de atenção, "positivo" para resultados bons, "neutro" para observações. Máximo 5 insights. Responda APENAS com o JSON.`;
-
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({
-          model:"claude-sonnet-4-6",
-          max_tokens:1000,
-          messages:[{ role:"user", content:prompt }]
-        })
-      });
-      const data = await res.json();
-      const texto = data.content?.[0]?.text || "";
-      const parsed = JSON.parse(texto.replace(/```json|```/g,"").trim());
-      setInsights(parsed.insights);
-    } catch(e) {
-      setErro("Não foi possível gerar insights. Tente novamente.");
+    // 1. Lucro / Prejuízo
+    if(lucroLiq < 0) {
+      lista.push({ emoji:"🔴", tipo:"alerta", titulo:"Prejuízo no período", texto:`A agência fechou o período com prejuízo de ${fmt2(Math.abs(lucroLiq))} (margem de ${margemLiq.toFixed(1)}%). É urgente revisar custos ou aumentar receita.` });
+    } else if(margemLiq < 10) {
+      lista.push({ emoji:"🟡", tipo:"atencao", titulo:"Margem líquida baixa", texto:`A margem de ${margemLiq.toFixed(1)}% está abaixo do recomendado para agências (mínimo 15%). Avalie corte de custos operacionais.` });
+    } else {
+      lista.push({ emoji:"🟢", tipo:"positivo", titulo:"Lucratividade saudável", texto:`Margem líquida de ${margemLiq.toFixed(1)}% — acima da média do setor. Continue monitorando os custos para manter esse resultado.` });
     }
-    setLoading(false);
+
+    // 2. Peso da folha/pessoal
+    const pessoal = subgruposOp?.pessoal?.total || 0;
+    const pctPessoal = recLiq > 0 ? (pessoal / recLiq) * 100 : 0;
+    if(pctPessoal > 50) {
+      lista.push({ emoji:"⚠️", tipo:"alerta", titulo:"Custo com pessoal elevado", texto:`Pessoal representa ${pctPessoal.toFixed(1)}% da receita líquida (${fmt2(pessoal)}). O ideal para agências é até 40-45%. Avalie produtividade por colaborador.` });
+    } else if(pctPessoal > 35) {
+      lista.push({ emoji:"🟡", tipo:"atencao", titulo:"Pessoal no limite aceitável", texto:`Custo com pessoal em ${pctPessoal.toFixed(1)}% da receita líquida (${fmt2(pessoal)}). Atenção para não ultrapassar 45% à medida que a receita crescer.` });
+    } else if(pessoal > 0) {
+      lista.push({ emoji:"✅", tipo:"positivo", titulo:"Custo com pessoal controlado", texto:`Pessoal representa ${pctPessoal.toFixed(1)}% da receita líquida — dentro do limite saudável para agências.` });
+    }
+
+    // 3. Carga tributária
+    const pctImposto = recBruta > 0 ? (impostos / recBruta) * 100 : 0;
+    if(pctImposto > 20) {
+      lista.push({ emoji:"🏛️", tipo:"atencao", titulo:"Carga tributária alta", texto:`Impostos consomem ${pctImposto.toFixed(1)}% da receita bruta (${fmt2(impostos)}). Vale consultar um contador sobre regimes tributários alternativos (Lucro Presumido, Simples).` });
+    } else if(pctImposto > 0) {
+      lista.push({ emoji:"📊", tipo:"neutro", titulo:"Carga tributária", texto:`Impostos representam ${pctImposto.toFixed(1)}% da receita bruta (${fmt2(impostos)}). Acompanhe a evolução para planejar o enquadramento tributário mais vantajoso.` });
+    }
+
+    // 4. Despesas financeiras
+    if(pctFin > 8) {
+      lista.push({ emoji:"💳", tipo:"alerta", titulo:"Custo financeiro crítico", texto:`Despesas financeiras consomem ${pctFin.toFixed(1)}% da receita líquida (${fmt2(despFin)}). Priorize quitação de dívidas — esse custo está destruindo a margem.` });
+    } else if(pctFin > 4) {
+      lista.push({ emoji:"💰", tipo:"atencao", titulo:"Custo financeiro elevado", texto:`${pctFin.toFixed(1)}% da receita líquida vai para despesas financeiras (${fmt2(despFin)}). Avalie renegociação de taxas ou antecipação de recebíveis.` });
+    }
+
+    // 5. Concentração de receita
+    if(catsRec.length === 1) {
+      lista.push({ emoji:"⚡", tipo:"atencao", titulo:"Receita concentrada em 1 serviço", texto:`Toda a receita vem de "${catsRec[0][0]}". Diversificar os serviços reduz o risco de dependência e aumenta a resiliência da agência.` });
+    } else if(catsRec.length > 0) {
+      const maior = catsRec[0];
+      const pctMaior = recBruta > 0 ? (maior[1]/recBruta*100) : 0;
+      if(pctMaior > 70) {
+        lista.push({ emoji:"⚡", tipo:"atencao", titulo:`${maior[0]} representa ${pctMaior.toFixed(0)}% da receita`, texto:`Alta concentração em um tipo de serviço aumenta o risco. Considere expandir outras linhas de receita para maior estabilidade.` });
+      }
+    }
+
+    return lista.slice(0, 5);
   };
 
-  const corTipo = { alerta:"#f87171", atencao:"#fbbf24", positivo:"#34d399", neutro:"#818cf8" };
-  const bgTipo  = { alerta:"rgba(248,113,113,0.08)", atencao:"rgba(251,191,36,0.08)", positivo:"rgba(52,211,153,0.08)", neutro:"rgba(129,140,248,0.08)" };
+  const [insights, setInsights] = useState(null);
+  const periodo = `${inicio?.split("-").reverse().join("/")} a ${fim?.split("-").reverse().join("/")}`;
+
+  const gerar = () => setInsights(gerarInsightsLocais());
+
+  const corTipo    = { alerta:"#f87171", atencao:"#fbbf24", positivo:"#34d399", neutro:"#818cf8" };
+  const bgTipo     = { alerta:"rgba(248,113,113,0.08)", atencao:"rgba(251,191,36,0.08)", positivo:"rgba(52,211,153,0.08)", neutro:"rgba(129,140,248,0.08)" };
   const borderTipo = { alerta:"rgba(248,113,113,0.2)", atencao:"rgba(251,191,36,0.2)", positivo:"rgba(52,211,153,0.2)", neutro:"rgba(129,140,248,0.2)" };
 
   return (
-    <div style={{ marginTop:20, background:"#1a1a2e", border:"1px solid rgba(99,102,241,0.2)", borderRadius:12, padding:20 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+    <div style={{ background:"#1a1a2e", border:"1px solid rgba(99,102,241,0.25)", borderRadius:12, padding:18 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:insights?14:0 }}>
         <div>
-          <div style={{ fontSize:13, fontWeight:700, color:"#818cf8", textTransform:"uppercase", letterSpacing:"0.08em" }}>✨ Insights da IA</div>
-          <div style={{ fontSize:11, color:"rgba(255,255,255,0.3)", marginTop:2 }}>Análise gerada pelo Claude com base nos dados do período</div>
+          <div style={{ fontSize:11, fontWeight:700, color:"#818cf8", textTransform:"uppercase", letterSpacing:"0.08em" }}>✨ Insights do Período</div>
+          {insights && <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", marginTop:2 }}>{periodo}</div>}
         </div>
-        <button onClick={gerarInsights} disabled={loading} style={{ background:loading?"rgba(99,102,241,0.1)":"rgba(99,102,241,0.2)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:8, padding:"8px 16px", color:"#818cf8", fontSize:12, fontWeight:600, cursor:loading?"wait":"pointer" }}>
-          {loading ? "⏳ Analisando..." : insights ? "🔄 Atualizar" : "✨ Gerar insights"}
+        <button onClick={gerar} style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", borderRadius:7, padding:"6px 12px", color:"#818cf8", fontSize:11, fontWeight:600, cursor:"pointer" }}>
+          {insights ? "🔄 Atualizar" : "✨ Analisar"}
         </button>
       </div>
 
-      {!insights && !loading && !erro && (
-        <div style={{ textAlign:"center", padding:"20px 0", color:"rgba(255,255,255,0.2)", fontSize:13 }}>
-          Clique em "Gerar insights" para obter uma análise inteligente do período
+      {!insights && (
+        <div style={{ textAlign:"center", padding:"16px 0 4px", color:"rgba(255,255,255,0.2)", fontSize:12 }}>
+          Clique em "Analisar" para ver os insights do período
         </div>
       )}
 
-      {erro && <div style={{ color:"#f87171", fontSize:13, textAlign:"center", padding:"12px 0" }}>{erro}</div>}
-
       {insights && (
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {insights.map((ins,i)=>(
-            <div key={i} style={{ background:bgTipo[ins.tipo]||bgTipo.neutro, border:`1px solid ${borderTipo[ins.tipo]||borderTipo.neutro}`, borderRadius:10, padding:"12px 16px" }}>
-              <div style={{ display:"flex", alignItems:"flex-start", gap:10 }}>
-                <span style={{ fontSize:20, flexShrink:0 }}>{ins.emoji}</span>
+            <div key={i} style={{ background:bgTipo[ins.tipo]||bgTipo.neutro, border:`1px solid ${borderTipo[ins.tipo]||borderTipo.neutro}`, borderRadius:9, padding:"10px 14px" }}>
+              <div style={{ display:"flex", alignItems:"flex-start", gap:8 }}>
+                <span style={{ fontSize:16, flexShrink:0, marginTop:1 }}>{ins.emoji}</span>
                 <div>
-                  <div style={{ fontSize:13, fontWeight:700, color:corTipo[ins.tipo]||corTipo.neutro, marginBottom:4 }}>{ins.titulo}</div>
-                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.65)", lineHeight:1.6 }}>{ins.texto}</div>
+                  <div style={{ fontSize:12, fontWeight:700, color:corTipo[ins.tipo]||corTipo.neutro, marginBottom:3 }}>{ins.titulo}</div>
+                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.6)", lineHeight:1.6 }}>{ins.texto}</div>
                 </div>
               </div>
             </div>
           ))}
-          <div style={{ fontSize:10, color:"rgba(255,255,255,0.2)", textAlign:"right", marginTop:4 }}>Análise baseada nos dados de {periodoRef.current}</div>
         </div>
       )}
     </div>
@@ -3304,15 +3301,15 @@ function DRE({ lancamentos, categorias }) {
               </div>
             ))}
           </div>
-        </div>
 
-        {/* Insights da IA */}
-        <InsightsDRE
-          recBruta={recBruta} impostos={impostos} recLiq={recLiq}
-          despOp={despOp} ebit={ebit} despFin={despFin} lucroLiq={lucroLiq}
-          margemEbit={margemEbit} margemLiq={margemLiq} pctFin={pctFin}
-          subgruposOp={subgruposOp} catsRec={catsRec} inicio={inicio} fim={fim}
-        />
+          {/* Insights da IA - dentro da coluna direita */}
+          <InsightsDRE
+            recBruta={recBruta} impostos={impostos} recLiq={recLiq}
+            despOp={despOp} ebit={ebit} despFin={despFin} lucroLiq={lucroLiq}
+            margemEbit={margemEbit} margemLiq={margemLiq} pctFin={pctFin}
+            subgruposOp={subgruposOp} catsRec={catsRec} inicio={inicio} fim={fim}
+          />
+        </div>
       </div>
     </div>
   );
